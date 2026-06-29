@@ -85,7 +85,7 @@ ORCA Markdown. Follow this format EXACTLY:
 - EVENT_IN_UPPER_SNAKE
 
 ## state state_in_snake_case [initial]
-> short description of this state
+> a SHORT 2-5 word label for this state (e.g. "Drafting", "Active license", "Terminated")
 - ignore: *
 
 ## state terminal_state [final]
