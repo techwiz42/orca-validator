@@ -15,7 +15,7 @@ from backend.llm.budget import check_budget, record_usage
 logger = logging.getLogger(__name__)
 
 
-async def _chat(messages: list[dict], max_tokens: int = 2000, temperature: float = 0.2,
+async def _chat(messages: list[dict], max_tokens: int = 2000, temperature: float = 0.067,
                 response_json: bool = False) -> str:
     s = get_settings()
     if not s.llm_enabled:
@@ -112,7 +112,7 @@ async def _revise_chunk(chunk: str) -> str:
     return (await _chat(
         [{"role": "system", "content": _REVISE_SYS},
          {"role": "user", "content": chunk}],
-        max_tokens=4096, temperature=0.3,
+        max_tokens=4096, temperature=0.1,
     )).strip()
 
 
@@ -127,7 +127,7 @@ async def _draft_additions(missing: list) -> str:
     return (await _chat(
         [{"role": "system", "content": system},
          {"role": "user", "content": user}],
-        max_tokens=2400, temperature=0.3,
+        max_tokens=2400, temperature=0.1,
     )).strip()
 
 
