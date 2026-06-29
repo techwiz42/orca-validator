@@ -31,6 +31,7 @@ type Result = {
   analysis_status?: string;
   revised_available?: boolean;
   revised_redline?: string;
+  document_fsm?: { mermaid?: string | null; verified?: boolean; report?: string };
 };
 
 // Render {--removed--}/{++added++} markup as red (struck) / green spans. React escapes the
@@ -75,28 +76,6 @@ export default function Home() {
   const [result, setResult] = useState<Result | null>(null);
   const [docId, setDocId] = useState<string | null>(null);
   const [pasteText, setPasteText] = useState("");
-  const [machines, setMachines] = useState<
-    { machine_id: string; mermaid: string | null; doc_type: string | null }[]
-  >([]);
-
-  useEffect(() => {
-    fetch("/api/machines")
-      .then((r) => r.json())
-      .then(async (list: { machine_id: string; doc_type: string | null }[]) => {
-        const out = await Promise.all(
-          list.map((m) =>
-            fetch(`/api/machines/${m.machine_id}`)
-              .then((r) => r.json())
-              .then((d) => ({ machine_id: m.machine_id, mermaid: d.mermaid ?? null, doc_type: m.doc_type }))
-              .catch(() => ({ machine_id: m.machine_id, mermaid: null, doc_type: m.doc_type })),
-          ),
-        );
-        setMachines(out);
-      })
-      .catch(() => setMachines([]));
-  }, []);
-
-  const machineOrder = ["document_pipeline", "ingestion", "contract_validation", "ai_assessment"];
 
   async function validate(f: File) {
     setBusy(true);
@@ -339,6 +318,41 @@ export default function Home() {
             </section>
           )}
 
+          {result.document_fsm && (result.document_fsm.mermaid || result.document_fsm.report) && (
+            <section style={PANEL}>
+              <h3 style={{ marginTop: 0 }}>
+                Document state machine{" "}
+                <span style={{ color: "#8b949e", fontSize: 12 }}>(extracted + ORCA-verified)</span>
+              </h3>
+              <p style={{ color: "#8b949e", fontSize: 13, marginTop: 0 }}>
+                The lifecycle / process <em>this document describes</em>, extracted as a state machine
+                and run through the ORCA verifier.
+              </p>
+              <p>
+                {result.document_fsm.verified ? (
+                  <span style={{ color: "#3fb950" }}>
+                    ✓ Formally verified — reachable, deadlock-free, complete.
+                  </span>
+                ) : (
+                  <span style={{ color: "#d29922" }}>
+                    ⚠ The verifier flagged issues below — a possible gap in the document&rsquo;s own logic.
+                  </span>
+                )}
+              </p>
+              {result.document_fsm.mermaid && (
+                <MachineDiagram source={result.document_fsm.mermaid} id="docfsm" />
+              )}
+              {!result.document_fsm.verified && result.document_fsm.report && (
+                <pre style={{
+                  whiteSpace: "pre-wrap", color: "#8b949e", fontSize: 12, background: "#0d1117",
+                  border: "1px solid #30363d", borderRadius: 6, padding: 12, marginTop: 8,
+                }}>
+                  {result.document_fsm.report}
+                </pre>
+              )}
+            </section>
+          )}
+
           {result.revised_available && docId && (
             <section style={PANEL}>
               <h3 style={{ marginTop: 0 }}>
@@ -379,26 +393,6 @@ export default function Home() {
         </>
       )}
 
-      <section style={PANEL}>
-        <h3 style={{ marginTop: 0 }}>State machines — verified topology</h3>
-        <p style={{ color: "#8b949e", fontSize: 13, marginTop: 0 }}>
-          The validation is decomposed into a top-level pipeline and component machines, each
-          formally verified (reachable, deadlock-free, complete) before it can run.
-        </p>
-        {[...machines]
-          .sort((a, b) => machineOrder.indexOf(a.machine_id) - machineOrder.indexOf(b.machine_id))
-          .map((m) => (
-            <div key={m.machine_id} style={{ marginBottom: 20 }}>
-              <h4 style={{ margin: "8px 0" }}>
-                {m.machine_id}{" "}
-                {m.doc_type && (
-                  <span style={{ color: "#3fb950", fontSize: 12 }}>(runtime verdict)</span>
-                )}
-              </h4>
-              <MachineDiagram source={m.mermaid} id={m.machine_id} />
-            </div>
-          ))}
-      </section>
     </main>
   );
 }

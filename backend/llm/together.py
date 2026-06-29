@@ -6,6 +6,7 @@ invoked without a key — it never fabricates an analysis.
 """
 import json
 import logging
+import re
 
 import httpx
 
@@ -73,6 +74,48 @@ async def analyze_contract(text: str) -> dict:
         data.setdefault(key, [])
     data.setdefault("aims", "")
     return data
+
+
+_FSM_FORMAT = """Express the lifecycle / process the document describes as a state machine in
+ORCA Markdown. Follow this format EXACTLY:
+
+# machine NameInPascalCase
+
+## events
+- EVENT_IN_UPPER_SNAKE
+
+## state state_in_snake_case [initial]
+> short description of this state
+- ignore: *
+
+## state terminal_state [final]
+
+## transitions
+| Source | Event | Guard | Target | Action |
+|---|---|---|---|---|
+| state_in_snake_case | EVENT_IN_UPPER_SNAKE | | terminal_state | |
+
+RULES (a verifier will check these):
+- Exactly ONE state marked [initial]; mark every terminal state [final].
+- Every NON-final state must have at least one outgoing transition AND a "- ignore: *" line.
+- Every state must be reachable from the initial state.
+- Model the document's REAL stages/lifecycle (e.g. a contract: drafting → effective → active →
+  renewal/termination; an agreement's obligations as conditional transitions).
+- Output ONLY the .orca.md document — no preamble, no explanation, no ``` fences."""
+
+
+async def extract_state_machine(text: str) -> str:
+    """Extract the FSM the document itself expresses, as an ORCA .orca.md machine."""
+    md = await _chat(
+        [{"role": "system", "content": "You are a systems analyst. " + _FSM_FORMAT},
+         {"role": "user", "content": f"Document:\n\n{text[:40000]}"}],
+        max_tokens=1500, temperature=0.1,
+    )
+    md = md.strip()
+    if md.startswith("```"):  # strip accidental code fences
+        md = re.sub(r"^```[a-zA-Z]*\n?", "", md)
+        md = re.sub(r"\n?```$", "", md)
+    return md.strip()
 
 
 _CHUNK_CHARS = 8000

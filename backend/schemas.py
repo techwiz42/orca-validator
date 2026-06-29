@@ -33,6 +33,7 @@ class ResultResponse(BaseModel):
     analysis_status: str = "skipped"      # done | skipped | error | budget_exceeded
     revised_available: bool = False       # download via /documents/{id}/revised.(md|docx)
     revised_redline: str | None = None    # {--removed--}/{++added++} markup for the in-UI redline
+    document_fsm: dict = {}                # the FSM the document expresses: {mermaid, verified, report}
 
 
 class MachineSummary(BaseModel):

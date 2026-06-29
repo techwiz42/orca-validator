@@ -57,6 +57,8 @@ class ValidationResult(Base):
     analysis: Mapped[dict] = mapped_column(JSONB, default=dict)        # structured contract analysis
     revised_markdown: Mapped[str | None] = mapped_column(Text, nullable=True)  # proposed redline
     analysis_status: Mapped[str] = mapped_column(String(32), default="skipped")  # done|skipped|error
+    # FSM the document itself expresses, extracted + ORCA-verified {orca_md, mermaid, verified, report}
+    document_fsm: Mapped[dict] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     run: Mapped["ValidationRun"] = relationship(back_populates="result")

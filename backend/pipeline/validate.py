@@ -20,9 +20,12 @@ from backend.app.config import get_settings
 from backend.app.database import AsyncSessionLocal
 from backend.models import Document, ValidationResult, ValidationRun
 from backend.ocr.extract import get_extractor
+import asyncio
+
 from backend.ocr.parser_client import parse_document
 from backend.llm.budget import BudgetExceeded
-from backend.llm.together import analyze_contract, revise_contract
+from backend.llm.together import analyze_contract, extract_state_machine, revise_contract
+from backend.orca.document_fsm import verify_and_compile
 from backend.orca.bridge import get_bridge
 from backend.storage.blobs import get_blob_store
 
@@ -88,6 +91,19 @@ async def run_validation(run_id: UUID) -> None:
             analysis = {"error": str(e)[:500]}
             analysis_status = "error"
 
+    # Extract the state machine the DOCUMENT itself expresses, then formally verify it (the ORCA
+    # payoff — surfaces unreachable states / deadlocks / gaps in the document's own logic).
+    document_fsm: dict = {}
+    if doc_text and verdict != "error" and settings.llm_enabled and analysis_status == "done":
+        try:
+            orca_md = await extract_state_machine(doc_text)
+            document_fsm = await asyncio.to_thread(verify_and_compile, orca_md)
+        except BudgetExceeded:
+            document_fsm = {"verified": False, "mermaid": None, "report": "skipped (LLM budget reached)"}
+        except Exception as e:  # noqa: BLE001
+            logger.exception("FSM extraction failed for run %s", run_id)
+            document_fsm = {"verified": False, "mermaid": None, "report": f"extraction failed: {e}"}
+
     async with AsyncSessionLocal() as db:
         run = (await db.execute(select(ValidationRun).where(ValidationRun.id == run_id))).scalars().first()
         doc = (await db.execute(select(Document).where(Document.id == run.document_id))).scalars().first()
@@ -95,6 +111,7 @@ async def run_validation(run_id: UUID) -> None:
             run_id=run_id, verdict=verdict, final_state=final_state,
             reasons=list(reasons), extracted_fields=fields, machine_context={},
             analysis=analysis, revised_markdown=revised_markdown, analysis_status=analysis_status,
+            document_fsm=document_fsm,
         ))
         run.status = "done" if verdict in ("pass", "fail") else "failed"
         run.finished_at = _utcnow()

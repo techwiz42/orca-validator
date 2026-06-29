@@ -99,6 +99,7 @@ async def get_result(document_id: UUID, subject: str = Depends(require_api_key),
         analysis=res.analysis or {}, analysis_status=res.analysis_status,
         revised_available=bool(res.revised_markdown),
         revised_redline=res.revised_markdown or None,
+        document_fsm=res.document_fsm or {},
     )
 
 
