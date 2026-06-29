@@ -69,10 +69,11 @@ async def analyze_contract(text: str) -> dict:
 
 async def revise_contract(text: str, analysis: dict) -> str:
     system = (
-        "You are a contract editor. Produce a REVISED version of the contract in Markdown that "
-        "fixes the identified issues and adds any missing or weak clauses, preserving the parties "
-        "and original intent. Clearly mark changes inline with **[ADDED]** or **[REVISED]** tags. "
-        "Output ONLY the revised contract in Markdown — no preamble."
+        "You are a contract editor producing a REDLINE. Rewrite the contract to fix the issues and "
+        "add any missing or weak clauses, preserving the parties and original intent. Mark EVERY "
+        "change inline: wrap text you REMOVE in {--double-minus braces--} and text you ADD in "
+        "{++double-plus braces++}. Leave unchanged text exactly as-is, with no markers. Do not use "
+        "any other change notation. Output ONLY the redlined contract — no preamble, no explanation."
     )
     issues = json.dumps(analysis.get("issues", []))[:3000]
     missing = json.dumps(analysis.get("missing_or_weak_clauses", []))[:1500]

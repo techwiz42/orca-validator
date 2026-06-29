@@ -10,6 +10,7 @@ from backend.app.database import get_db
 from backend.app.state import VERIFIED_MACHINES
 from backend.deps import require_api_key
 from backend.export.docx import markdown_to_docx
+from backend.export.redline import clean_revision
 from backend.queue import enqueue
 from backend.models import Document, ValidationResult, ValidationRun
 from backend.orca.registry import MACHINE_IDS, supported_doc_types
@@ -97,6 +98,7 @@ async def get_result(document_id: UUID, subject: str = Depends(require_api_key),
         extracted_fields=res.extracted_fields, machine_id=run.machine_id, machine_hash=run.machine_hash,
         analysis=res.analysis or {}, analysis_status=res.analysis_status,
         revised_available=bool(res.revised_markdown),
+        revised_redline=res.revised_markdown or None,
     )
 
 
@@ -115,7 +117,7 @@ async def _revised_or_404(db: AsyncSession, document_id: UUID) -> str:
 @router.get("/documents/{document_id}/revised.md")
 async def download_revised_md(document_id: UUID, subject: str = Depends(require_api_key),
                               db: AsyncSession = Depends(get_db)):
-    md = await _revised_or_404(db, document_id)
+    md = clean_revision(await _revised_or_404(db, document_id))   # accepted (clean) version
     return Response(
         content=md, media_type="text/markdown",
         headers={"Content-Disposition": f'attachment; filename="revised-{document_id}.md"'},
@@ -125,7 +127,7 @@ async def download_revised_md(document_id: UUID, subject: str = Depends(require_
 @router.get("/documents/{document_id}/revised.docx")
 async def download_revised_docx(document_id: UUID, subject: str = Depends(require_api_key),
                                 db: AsyncSession = Depends(get_db)):
-    md = await _revised_or_404(db, document_id)
+    md = clean_revision(await _revised_or_404(db, document_id))   # accepted (clean) version
     data = markdown_to_docx(md, title="Revised Contract (AI-assisted)")
     return Response(
         content=data,

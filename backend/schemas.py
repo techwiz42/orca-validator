@@ -30,8 +30,9 @@ class ResultResponse(BaseModel):
     machine_hash: str | None = None
     # AI-assisted layer (not part of the verified verdict)
     analysis: dict = {}
-    analysis_status: str = "skipped"      # done | skipped | error
+    analysis_status: str = "skipped"      # done | skipped | error | budget_exceeded
     revised_available: bool = False       # download via /documents/{id}/revised.(md|docx)
+    revised_redline: str | None = None    # {--removed--}/{++added++} markup for the in-UI redline
 
 
 class MachineSummary(BaseModel):

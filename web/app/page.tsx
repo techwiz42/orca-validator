@@ -26,7 +26,32 @@ type Result = {
   analysis?: Analysis;
   analysis_status?: string;
   revised_available?: boolean;
+  revised_redline?: string;
 };
+
+// Render {--removed--}/{++added++} markup as red (struck) / green spans. React escapes the
+// text, so this is XSS-safe even though the content is model-generated.
+function renderRedline(text: string) {
+  return text.split(/(\{--[\s\S]*?--\}|\{\+\+[\s\S]*?\+\+\})/).map((p, i) => {
+    const del = p.match(/^\{--([\s\S]*)--\}$/);
+    if (del) {
+      return (
+        <del key={i} style={{ color: "#f85149", background: "#3d1417", textDecoration: "line-through" }}>
+          {del[1]}
+        </del>
+      );
+    }
+    const ins = p.match(/^\{\+\+([\s\S]*)\+\+\}$/);
+    if (ins) {
+      return (
+        <ins key={i} style={{ color: "#3fb950", background: "#0f2417", textDecoration: "none" }}>
+          {ins[1]}
+        </ins>
+      );
+    }
+    return <span key={i}>{p}</span>;
+  });
+}
 
 const PANEL: React.CSSProperties = {
   border: "1px solid #30363d",
@@ -221,13 +246,37 @@ export default function Home() {
           {result.revised_available && docId && (
             <section style={PANEL}>
               <h3 style={{ marginTop: 0 }}>
-                Proposed revised document <span style={{ color: "#8b949e", fontSize: 12 }}>(AI-assisted)</span>
+                Proposed revised document{" "}
+                <span style={{ color: "#8b949e", fontSize: 12 }}>(AI-assisted redline)</span>
               </h3>
-              <p>
+              {result.revised_redline && (
+                <div
+                  style={{
+                    whiteSpace: "pre-wrap",
+                    fontFamily: "ui-monospace, SFMono-Regular, monospace",
+                    fontSize: 13,
+                    lineHeight: 1.7,
+                    background: "#0d1117",
+                    border: "1px solid #30363d",
+                    borderRadius: 6,
+                    padding: 16,
+                    maxHeight: 480,
+                    overflowY: "auto",
+                  }}
+                >
+                  {renderRedline(result.revised_redline)}
+                </div>
+              )}
+              <p style={{ marginTop: 12 }}>
                 <a href={`/api/documents/${docId}/revised?format=docx`}
                    style={{ color: "#58a6ff", marginRight: 16 }}>⬇ Download .docx</a>
                 <a href={`/api/documents/${docId}/revised?format=md`}
                    style={{ color: "#58a6ff" }}>⬇ Download .md</a>
+              </p>
+              <p style={{ color: "#8b949e", fontSize: 12, marginBottom: 0 }}>
+                <span style={{ color: "#3fb950" }}>green</span> = added ·{" "}
+                <span style={{ color: "#f85149" }}>red</span> = removed · downloads contain the
+                accepted (clean) version.
               </p>
             </section>
           )}
