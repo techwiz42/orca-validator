@@ -1,0 +1,9 @@
+{
+  "name": "orca-validator-verifier",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ORCA machine verification (build/boot gate only — not an app runtime)",
+  "devDependencies": {
+    "@orcalang/orca-lang": "^0.1.30"
+  }
+}

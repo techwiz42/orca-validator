@@ -1,0 +1,37 @@
+"""Pydantic request/response models."""
+from uuid import UUID
+
+from pydantic import BaseModel
+
+
+class SubmitResponse(BaseModel):
+    document_id: UUID
+    run_id: UUID
+    status: str
+
+
+class StatusResponse(BaseModel):
+    document_id: UUID
+    run_id: UUID
+    status: str
+    doc_type: str
+    machine_id: str
+
+
+class ResultResponse(BaseModel):
+    run_id: UUID
+    status: str
+    ready: bool
+    verdict: str | None = None
+    final_state: str | None = None
+    reasons: list = []
+    extracted_fields: dict = {}
+    machine_id: str | None = None
+    machine_hash: str | None = None
+
+
+class MachineSummary(BaseModel):
+    doc_type: str
+    machine_id: str
+    verified: bool
+    hash: str | None = None

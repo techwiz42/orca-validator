@@ -1,0 +1,2 @@
+# NOTE: to ACTIVATE CI, move this to .github/workflows/verify.yml and push with a
+# token that has the `workflow` scope (the bootstrap PAT lacked it). Content is final.

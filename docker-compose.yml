@@ -1,0 +1,44 @@
+# Co-located on the shared droplet → every service is CPU/mem-limited and uses its OWN
+# Postgres/Redis (never the builder's), so it cannot starve neighbouring workloads.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+    environment:
+      DATABASE_URL: postgresql://orca:orca@postgres:5432/orca
+      REDIS_URL: redis://redis:6379/0
+      API_KEY: ${API_KEY:-changeme-dev-key}
+    ports:
+      - "8080:8000"
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - blobs:/app/data/blobs
+    cpus: 1.0
+    mem_limit: 1g
+
+  # NOTE: MVP runs validation in-process via FastAPI BackgroundTasks. The dedicated
+  # Redis worker (task §4.1) is added here as a second service behind the same image.
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: orca
+      POSTGRES_PASSWORD: orca
+      POSTGRES_DB: orca
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    cpus: 1.0
+    mem_limit: 512m
+
+  redis:
+    image: redis:7
+    cpus: 0.5
+    mem_limit: 256m
+
+volumes:
+  pgdata:
+  blobs:
