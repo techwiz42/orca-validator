@@ -1,0 +1,24 @@
+schema: spec-driven
+
+context: |
+  Project: orca-validator — ORCA-verification-as-a-service for business documents.
+  Served at orca.cyberiad.ai; co-located (for now) on the shared cyberiad droplet, with the
+  option to migrate to its own droplet once it sees real usage.
+
+  Tech stack: Python 3.11 + FastAPI (async). SQLAlchemy[asyncio] + asyncpg over PostgreSQL,
+  Alembic migrations. Redis-backed job queue + a separate worker process (OCR + LLM are slow).
+  OCR via PyMuPDF (fitz) with a tesseract fallback for scanned pages and LLM structuring.
+  ORCA validation machines execute on orca-runtime-python; ORCA spec topology is verified by the
+  @orcalang TypeScript CLI as a build + boot gate. Optional thin Next.js (TypeScript) UI.
+
+  Conventions: emulate agent_framework/modules/revenue_cycle (sub_services/eob_ocr.py,
+  orca_bridge.py, machine_persistence.py, actions/). Prime directive: no mocks, fakes, or silent
+  fallbacks — fail loudly. Carry forward the DB hardening lessons learned in agent_framework:
+  pool_pre_ping=True + pool_timeout. Resource-limit every container so the service cannot starve
+  co-located production workloads.
+
+rules:
+  proposal:
+    - Keep it tight; lead with why the *verification* (not just "a validator") is the product.
+  tasks:
+    - Sequence as independently shippable vertical slices; mark the thinnest MVP slice explicitly.

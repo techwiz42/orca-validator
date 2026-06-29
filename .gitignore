@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node (the @orcalang verifier CLI)
+node_modules/
+.next/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Local storage / blobs / data
+data/
+storage/blobs/
+*.sqlite
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
