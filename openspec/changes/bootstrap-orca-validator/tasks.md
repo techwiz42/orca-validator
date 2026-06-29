@@ -6,7 +6,7 @@
 
 ## 0. Repo & infrastructure scaffold
 
-- [ ] 0.1 `pyproject.toml` (fastapi, sqlalchemy[asyncio], asyncpg, alembic, orca-runtime-python, pymupdf, pytesseract, pillow, redis, pydantic-settings) + `package.json` pinning only `@orcalang/orca`.
+- [ ] 0.1 `pyproject.toml` (fastapi, sqlalchemy[asyncio], asyncpg, alembic, orca-runtime-python, pymupdf, pytesseract, pillow, redis, pydantic-settings) + `package.json` devDependency `@orcalang/orca-lang` (the verifier; exposes the `orca` bin).
 - [ ] 0.2 `docker-compose.yml`: `api`, `worker`, `postgres`, `redis` — each with explicit `cpus`/`mem_limit`; dedicated Postgres/Redis (never the builder's). `.env.example`, `Makefile` (`verify-machines`, `dev`, `test`, `migrate`).
 - [ ] 0.3 `backend/app/database.py`: async engine with `pool_pre_ping=True` **and** `pool_timeout` (carry forward the agent_framework login-race lessons). `config.py` via pydantic-settings. `app/main.py` FastAPI app + lifespan skeleton.
 - [ ] 0.4 Alembic wired; `GET /health` green against Postgres + Redis.
@@ -14,7 +14,7 @@
 ## 1. Verification gate (`machine-verification`)
 
 - [ ] 1.1 `machines/contract_validation.orca.md` — the bootstrap contract-validation machine.
-- [ ] 1.2 `make verify-machines` → `npx @orcalang/orca verify machines/*.orca.md`; non-zero exit fails the target. Wire into CI.
+- [ ] 1.2 `make verify-machines` → `npx orca verify machines/*.orca.md` (the `orca` bin from `@orcalang/orca-lang`); non-zero exit fails the target. Wire into CI.
 - [ ] 1.3 Boot gate: `main.py` lifespan verifies every registered machine at startup and **refuses to boot** on failure (mirrors `validate_access_logging_coverage`). Verified-machine metadata (id, version, hash) recorded.
 - [ ] 1.4 Test: an intentionally-broken machine (unreachable state / non-deterministic guard) fails both `make verify-machines` and boot.
 
@@ -47,7 +47,7 @@
 
 ## 6. API surface (`validation-api`)
 
-- [ ] 6.1 `backend/api/machines.py`: `GET /machines` (registry of verified machines), `GET /machines/{id}` (topology + Mermaid via `@orcalang ... compile`).
+- [ ] 6.1 `backend/api/machines.py`: `GET /machines` (registry of verified machines), `GET /machines/{id}` (topology + Mermaid via `orca compile mermaid`).
 - [ ] 6.2 Request validation, error contract (loud failures, no silent empties), pagination on list endpoints.
 - [ ] 6.3 OpenAPI surface reviewed; shared-key auth dependency on all write endpoints.
 

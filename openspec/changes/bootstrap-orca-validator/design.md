@@ -100,7 +100,7 @@ Migration to a dedicated droplet later is then a lift-and-shift of an already-is
 orca-validator/
 ├── docker-compose.yml          # api · worker · postgres · redis · (web) — CPU/mem LIMITED
 ├── Makefile                    # verify-machines · dev · test · migrate
-├── package.json                # ONLY @orcalang/orca (the verifier CLI)
+├── package.json                # ONLY @orcalang/orca-lang (the `orca` verifier CLI)
 ├── pyproject.toml
 ├── machines/                   # verified ORCA specs (*.orca.md)
 ├── backend/

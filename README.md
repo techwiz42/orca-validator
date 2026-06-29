@@ -37,8 +37,8 @@ No application code yet — the next step is `/opsx:apply bootstrap-orca-validat
 ## Stack
 
 Python 3.11 · FastAPI · SQLAlchemy[asyncio] + asyncpg over PostgreSQL · Redis-backed worker ·
-PyMuPDF/tesseract OCR · `orca-runtime-python` · `@orcalang` verifier CLI (TypeScript, build/boot
-gate only). Optional thin Next.js UI.
+PyMuPDF/tesseract OCR · `orca-runtime-python` · `@orcalang/orca-lang` verifier CLI (the `orca` bin; TypeScript,
+build/boot gate only). Optional thin Next.js UI.
 
 Patterns emulate `agent_framework/modules/revenue_cycle` (`eob_ocr.py`, `orca_bridge.py`,
 `machine_persistence.py`).
