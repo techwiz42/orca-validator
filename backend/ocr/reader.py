@@ -1,31 +1,73 @@
-"""PDF → text. Embedded-text-first (PyMuPDF), tesseract fallback for image-only pages.
+"""Document → text, dispatched by format.
 
-Emulates revenue_cycle/sub_services/eob_ocr.py's fitz usage. Returns an OCRResult with
-per-page provenance; on undecodable input it sets `error` (the caller fails the run loudly
-rather than passing an empty field set downstream).
+Ingests most common document formats (the service is *tuned* for contracts via the downstream
+machine, but not limited to one input format):
+  - PDF / images / EPUB / XPS / …  → PyMuPDF, with a tesseract OCR fallback for image-only pages
+  - .docx                          → python-docx
+  - plain text (.txt/.md/.csv/…)   → read directly
+
+Returns an OCRResult with per-source provenance. On undecodable input it sets `error` (the caller
+fails the run loudly rather than passing an empty field set downstream).
 """
 import io
 import logging
+import os
 
 from backend.ocr.result import OCRResult
 
 logger = logging.getLogger(__name__)
 
-# below this many embedded chars, a page is treated as image-only and sent to OCR
-_MIN_EMBEDDED_CHARS = 20
+_MIN_EMBEDDED_CHARS = 20  # below this, a PDF page is treated as image-only and sent to OCR
+_FITZ_EXTS = {"pdf", "png", "jpg", "jpeg", "tif", "tiff", "bmp", "gif", "webp",
+              "epub", "xps", "fb2", "cbz", "svg"}
+_TEXT_EXTS = {"txt", "md", "markdown", "text", "csv", "log", "rtf"}
 
 
-def read_pdf(file_path: str, dpi: int = 200) -> OCRResult:
+def read_document(file_path: str, dpi: int = 200) -> OCRResult:
+    ext = os.path.splitext(file_path)[1].lower().lstrip(".")
+    try:
+        if ext == "docx":
+            return _read_docx(file_path)
+        if ext in _TEXT_EXTS:
+            return _read_text(file_path)
+        if ext in _FITZ_EXTS or ext == "":
+            return _read_fitz(file_path, dpi)
+        return OCRResult(error=f"unsupported document type: .{ext}")
+    except Exception as e:  # noqa: BLE001 — fail loudly with the reason, never a fake empty result
+        return OCRResult(error=f"could not read document (.{ext or 'unknown'}): {e}")
+
+
+def _read_text(file_path: str) -> OCRResult:
+    with open(file_path, encoding="utf-8", errors="replace") as f:
+        raw = f.read().strip()
+    if not raw:
+        return OCRResult(error="empty text document")
+    return OCRResult(raw_text=raw, pages=[{"page": 0, "method": "text", "chars": len(raw)}])
+
+
+def _read_docx(file_path: str) -> OCRResult:
+    try:
+        import docx  # python-docx
+    except ImportError as e:
+        return OCRResult(error=f"python-docx not available: {e}")
+    d = docx.Document(file_path)
+    parts = [p.text for p in d.paragraphs]
+    for table in d.tables:
+        for row in table.rows:
+            parts.append("\t".join(c.text for c in row.cells))
+    raw = "\n".join(parts).strip()
+    if not raw:
+        return OCRResult(error="no text extracted from .docx")
+    return OCRResult(raw_text=raw, pages=[{"page": 0, "method": "docx", "chars": len(raw)}])
+
+
+def _read_fitz(file_path: str, dpi: int) -> OCRResult:
     try:
         import fitz  # PyMuPDF
     except ImportError as e:
         return OCRResult(error=f"PyMuPDF (fitz) not available: {e}")
 
-    try:
-        doc = fitz.open(file_path)
-    except Exception as e:
-        return OCRResult(error=f"could not open PDF: {e}")
-
+    doc = fitz.open(file_path)
     pages: list[dict] = []
     texts: list[str] = []
     try:
@@ -56,8 +98,7 @@ def _ocr_page_image(page, dpi: int) -> str | None:
         return None
     try:
         pix = page.get_pixmap(dpi=dpi)
-        img = Image.open(io.BytesIO(pix.tobytes("png")))
-        return pytesseract.image_to_string(img)
-    except Exception as e:
+        return pytesseract.image_to_string(Image.open(io.BytesIO(pix.tobytes("png"))))
+    except Exception as e:  # noqa: BLE001
         logger.warning("tesseract OCR failed for a page: %s", e)
         return None

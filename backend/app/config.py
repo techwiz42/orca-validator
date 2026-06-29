@@ -36,6 +36,16 @@ class Settings(BaseSettings):
     OCR_DPI: int = Field(default=200)
     EXTRACTOR: str = Field(default="deterministic", description="deterministic | llm")
 
+    # LLM (Together) — powers the AI-assisted analysis + revised-document generation.
+    # The structural verdict stays machine-verified; the LLM only adds the analysis/redline.
+    TOGETHER_API_KEY: str = Field(default="", description="empty → analysis/revision skipped")
+    TOGETHER_MODEL: str = Field(default="meta-llama/Llama-3.3-70B-Instruct-Turbo")
+    TOGETHER_BASE_URL: str = Field(default="https://api.together.xyz/v1")
+
+    @property
+    def llm_enabled(self) -> bool:
+        return bool(self.TOGETHER_API_KEY)
+
     ENVIRONMENT: str = Field(default="production")
 
 

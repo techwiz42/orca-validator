@@ -1,6 +1,7 @@
+import os
 from uuid import UUID
 
-from fastapi import (APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile)
+from fastapi import (APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Response, UploadFile)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +9,7 @@ from backend.app.config import get_settings
 from backend.app.database import get_db
 from backend.app.state import VERIFIED_MACHINES
 from backend.deps import require_api_key
+from backend.export.docx import markdown_to_docx
 from backend.queue import enqueue
 from backend.models import Document, ValidationResult, ValidationRun
 from backend.orca.registry import MACHINE_IDS, supported_doc_types
@@ -40,7 +42,9 @@ async def submit_document(
     if not data:
         raise HTTPException(400, "empty upload")
 
-    blob_ref = get_blob_store().put(data, suffix=".pdf")
+    # Preserve the real extension so the reader can dispatch by format (pdf/image/docx/text).
+    suffix = os.path.splitext(file.filename or "")[1].lower() or ".pdf"
+    blob_ref = get_blob_store().put(data, suffix=suffix)
     doc = Document(owner=subject, doc_type=doc_type,
                    filename=file.filename or "upload.pdf", blob_ref=blob_ref, status="queued")
     db.add(doc)
@@ -91,4 +95,40 @@ async def get_result(document_id: UUID, subject: str = Depends(require_api_key),
         run_id=run.id, status=run.status, ready=True,
         verdict=res.verdict, final_state=res.final_state, reasons=res.reasons,
         extracted_fields=res.extracted_fields, machine_id=run.machine_id, machine_hash=run.machine_hash,
+        analysis=res.analysis or {}, analysis_status=res.analysis_status,
+        revised_available=bool(res.revised_markdown),
+    )
+
+
+async def _revised_or_404(db: AsyncSession, document_id: UUID) -> str:
+    run = await _latest_run(db, document_id)
+    if not run:
+        raise HTTPException(404, "no validation run for document")
+    res = (await db.execute(
+        select(ValidationResult).where(ValidationResult.run_id == run.id)
+    )).scalars().first()
+    if res is None or not res.revised_markdown:
+        raise HTTPException(404, "no revised document available")
+    return res.revised_markdown
+
+
+@router.get("/documents/{document_id}/revised.md")
+async def download_revised_md(document_id: UUID, subject: str = Depends(require_api_key),
+                              db: AsyncSession = Depends(get_db)):
+    md = await _revised_or_404(db, document_id)
+    return Response(
+        content=md, media_type="text/markdown",
+        headers={"Content-Disposition": f'attachment; filename="revised-{document_id}.md"'},
+    )
+
+
+@router.get("/documents/{document_id}/revised.docx")
+async def download_revised_docx(document_id: UUID, subject: str = Depends(require_api_key),
+                                db: AsyncSession = Depends(get_db)):
+    md = await _revised_or_404(db, document_id)
+    data = markdown_to_docx(md, title="Revised Contract (AI-assisted)")
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="revised-{document_id}.docx"'},
     )

@@ -10,6 +10,8 @@ services:
       DATABASE_URL: postgresql://orca:orca@postgres:5432/orca
       REDIS_URL: redis://redis:6379/0
       API_KEY: ${API_KEY:-changeme-dev-key}
+      TOGETHER_API_KEY: ${TOGETHER_API_KEY:-}        # set to enable AI analysis + revision
+      TOGETHER_MODEL: ${TOGETHER_MODEL:-meta-llama/Llama-3.3-70B-Instruct-Turbo}
     ports:
       - "127.0.0.1:8085:8000"   # host-local only; the web service reaches it via the compose net
     depends_on:

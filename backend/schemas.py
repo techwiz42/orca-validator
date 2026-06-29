@@ -28,6 +28,10 @@ class ResultResponse(BaseModel):
     extracted_fields: dict = {}
     machine_id: str | None = None
     machine_hash: str | None = None
+    # AI-assisted layer (not part of the verified verdict)
+    analysis: dict = {}
+    analysis_status: str = "skipped"      # done | skipped | error
+    revised_available: bool = False       # download via /documents/{id}/revised.(md|docx)
 
 
 class MachineSummary(BaseModel):

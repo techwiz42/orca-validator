@@ -53,6 +53,10 @@ class ValidationResult(Base):
     reasons: Mapped[list] = mapped_column(JSONB, default=list)
     extracted_fields: Mapped[dict] = mapped_column(JSONB, default=dict)
     machine_context: Mapped[dict] = mapped_column(JSONB, default=dict)
+    # AI-assisted layer (Together) — NOT part of the verified verdict.
+    analysis: Mapped[dict] = mapped_column(JSONB, default=dict)        # structured contract analysis
+    revised_markdown: Mapped[str | None] = mapped_column(Text, nullable=True)  # proposed redline
+    analysis_status: Mapped[str] = mapped_column(String(32), default="skipped")  # done|skipped|error
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     run: Mapped["ValidationRun"] = relationship(back_populates="result")
