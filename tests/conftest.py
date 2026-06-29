@@ -2,6 +2,8 @@ import os
 import sys
 
 # Make the repo root importable (backend.*, machines.*) without an editable install.
+os.environ.setdefault("TOGETHER_API_KEY", "")
+os.environ["TOGETHER_API_KEY"] = ""  # tests never call the live LLM
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest_asyncio
