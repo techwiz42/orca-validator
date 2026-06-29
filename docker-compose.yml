@@ -39,6 +39,23 @@ services:
     cpus: 0.5
     mem_limit: 256m
 
+  # Thin Next.js UI. Proxies to `api` server-side (API key never reaches the browser).
+  # Route orca.cyberiad.ai here for the human UI; the raw API stays on `api` (:8080) for
+  # programmatic/CI use.
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    environment:
+      BACKEND_URL: http://api:8000
+      API_KEY: ${API_KEY:-changeme-dev-key}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    cpus: 0.5
+    mem_limit: 512m
+
 volumes:
   pgdata:
   blobs:

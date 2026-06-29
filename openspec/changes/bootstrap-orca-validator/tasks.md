@@ -4,13 +4,13 @@
 > (PDF → OCR → verified machine → verdict) with everything else stubbed minimally. §6–§8 harden
 > and expand.
 >
-> **Status: 29/30.** The full spine works end-to-end against the real `orca_runtime_python`
+> **Status: 30/30 — complete.** The full spine works end-to-end against the real `orca_runtime_python`
 > 0.1.30 + Postgres — **13 tests pass** (verification gate, OCR, ORCA bridge incl. snapshot
 > resume, and the e2e demo: valid contract → `pass`, incomplete → `fail` with reasons, unauth →
 > 401). Alembic initial migration applies; `make verify-machines` passes; health checks
 > Postgres + Redis; Redis worker + queue wired (behind `USE_REDIS_QUEUE`, MVP uses
 > BackgroundTasks); compose CPU/mem-limited with its own Postgres/Redis; nginx vhost + DEPLOY.md.
-> Only **§8.1 (optional web UI)** remains, deferred by design until API usage warrants it.
+> The thin Next.js web UI (§8.1) is built and type-checks/builds clean (upload → verdict + the verified machine's Mermaid diagram, with server-side API-key proxying).
 
 ## 0. Repo & infrastructure scaffold
 
@@ -67,4 +67,4 @@
 
 ## 8. Optional — thin web UI (deferred)
 
-- [ ] 8.1 `web/` (Next.js): drop-a-PDF upload, live status, verdict + the machine's Mermaid diagram. Ship only if API-first usage shows a UI is wanted.
+- [x] 8.1 `web/` (Next.js): drop-a-PDF upload, live status, verdict + the machine's Mermaid diagram. Ship only if API-first usage shows a UI is wanted.

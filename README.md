@@ -12,18 +12,21 @@ Served at `orca.cyberiad.ai`.
 
 ## Status
 
-📋 **Spec-first, pre-implementation.** The full design lives in OpenSpec:
-
-```
-openspec/changes/bootstrap-orca-validator/   # proposal · design · tasks · specs
-```
+✅ **MVP implemented** (the `bootstrap-orca-validator` OpenSpec change, 30/30). The full spine
+works end-to-end against the real `orca_runtime_python` + Postgres, with a thin Next.js UI.
+`13` backend tests pass (verification gate, OCR, ORCA bridge incl. snapshot resume, e2e demo).
 
 ```bash
-openspec show bootstrap-orca-validator      # read the change
-openspec validate bootstrap-orca-validator  # validate the spec
+cp .env.example .env            # set API_KEY
+make install                    # npm (verifier) + pip install -e ".[dev]"
+make verify-machines            # topology gate — must pass
+docker compose up -d --build    # api + web + its own postgres + redis (CPU/mem limited)
+docker compose exec api alembic upgrade head
+# API:  http://localhost:8080   (programmatic / CI)
+# UI:   http://localhost:3000   (drop a contract PDF → verdict + machine diagram)
 ```
 
-No application code yet — the next step is `/opsx:apply bootstrap-orca-validator`.
+Run the tests: `make test`. Design + tasks live in `openspec/changes/bootstrap-orca-validator/`.
 
 ## How it works (two layers, mirroring ORCA)
 
