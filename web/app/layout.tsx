@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import "./globals.css";
+
 export const metadata = {
   title: "ORCA Validator",
   description: "ORCA-verified validation of business documents",

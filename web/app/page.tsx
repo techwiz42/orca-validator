@@ -95,13 +95,16 @@ export default function Home() {
     }
     const { document_id } = await res.json();
     setDocId(document_id);
-    for (let i = 0; i < 120; i++) {
+    const start = Date.now();
+    for (let i = 0; i < 240; i++) {
       const r: Result = await fetch(`/api/documents/${document_id}/result`).then((x) => x.json());
-      setStatus(r.status + (r.ready ? "" : " — analyzing…"));
       if (r.ready) {
         setResult(r);
+        setStatus("done");
         break;
       }
+      const secs = Math.round((Date.now() - start) / 1000);
+      setStatus(`analyzing… ${secs}s — long documents can take a few minutes`);
       await new Promise((done) => setTimeout(done, 1500));
     }
     setBusy(false);
@@ -168,7 +171,12 @@ export default function Home() {
         >
           {busy ? "Validating…" : "Validate"}
         </button>
-        {status && <div style={{ marginTop: 10, color: "#8b949e" }}>status: {status}</div>}
+        {status && (
+          <div style={{ marginTop: 12, color: "#8b949e", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            {busy && <span className="spinner" aria-label="processing" />}
+            <span>{status}</span>
+          </div>
+        )}
       </div>
 
       {result && (
