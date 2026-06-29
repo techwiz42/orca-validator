@@ -96,6 +96,7 @@ ORCA Markdown. Follow this format EXACTLY:
 | state_in_snake_case | EVENT_IN_UPPER_SNAKE | | terminal_state | |
 
 RULES (a verifier will check these):
+- The FIRST line MUST be exactly `# machine NameInPascalCase` — include the literal word "machine".
 - Exactly ONE state marked [initial]; mark every terminal state [final].
 - Every NON-final state must have at least one outgoing transition AND a "- ignore: *" line.
 - Every state must be reachable from the initial state.
@@ -115,6 +116,11 @@ async def extract_state_machine(text: str) -> str:
     if md.startswith("```"):  # strip accidental code fences
         md = re.sub(r"^```[a-zA-Z]*\n?", "", md)
         md = re.sub(r"\n?```$", "", md)
+    md = md.strip()
+    # The model sometimes drops the required "machine" keyword from the header
+    # (`# Name` instead of `# machine Name`), which crashes the parser — repair it.
+    if not re.match(r"^#\s+machine\b", md, re.IGNORECASE):
+        md = re.sub(r"^#\s+", "# machine ", md, count=1)
     return md.strip()
 
 
