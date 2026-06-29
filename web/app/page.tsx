@@ -7,8 +7,12 @@ import { MachineDiagram } from "./MachineDiagram";
 type Issue = { severity?: string; issue?: string; recommendation?: string };
 type Analysis = {
   summary?: string;
+  aims?: string;
   parties?: string[];
   key_terms?: { term?: string; detail?: string }[];
+  strengths?: string[];
+  weaknesses?: string[];
+  potential_pitfalls?: string[];
   issues?: Issue[];
   missing_or_weak_clauses?: string[];
   overall_recommendation?: string;
@@ -217,7 +221,6 @@ export default function Home() {
             )}
             {result.analysis_status === "done" && a && (
               <>
-                {a.summary && <p>{a.summary}</p>}
                 {a.parties && a.parties.length > 0 && (
                   <p><strong>Parties:</strong> {a.parties.join(", ")}</p>
                 )}
@@ -251,6 +254,36 @@ export default function Home() {
               </>
             )}
           </section>
+
+          {result.analysis_status === "done" && a && (
+            <section style={PANEL}>
+              <h3 style={{ marginTop: 0 }}>
+                Assessment <span style={{ color: "#8b949e", fontSize: 12 }}>(AI-assisted)</span>
+              </h3>
+              {a.summary && <p>{a.summary}</p>}
+              {a.aims && (
+                <p><strong>Aims:</strong> {a.aims}</p>
+              )}
+              {a.strengths && a.strengths.length > 0 && (
+                <>
+                  <p style={{ color: "#3fb950", marginBottom: 4 }}><strong>Strengths</strong></p>
+                  <ul>{a.strengths.map((s, i) => <li key={i}>{s}</li>)}</ul>
+                </>
+              )}
+              {a.weaknesses && a.weaknesses.length > 0 && (
+                <>
+                  <p style={{ color: "#d29922", marginBottom: 4 }}><strong>Weaknesses</strong></p>
+                  <ul>{a.weaknesses.map((s, i) => <li key={i}>{s}</li>)}</ul>
+                </>
+              )}
+              {a.potential_pitfalls && a.potential_pitfalls.length > 0 && (
+                <>
+                  <p style={{ color: "#f85149", marginBottom: 4 }}><strong>Potential pitfalls</strong></p>
+                  <ul>{a.potential_pitfalls.map((s, i) => <li key={i}>{s}</li>)}</ul>
+                </>
+              )}
+            </section>
+          )}
 
           {result.revised_available && docId && (
             <section style={PANEL}>

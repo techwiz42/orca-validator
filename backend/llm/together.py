@@ -43,27 +43,35 @@ async def _chat(messages: list[dict], max_tokens: int = 2000, temperature: float
 
 async def analyze_contract(text: str) -> dict:
     system = (
-        "You are a meticulous contract analyst. Analyze the contract and respond with JSON only, "
+        "You are a meticulous document analyst. Analyze the document and respond with JSON only, "
         "using exactly these keys: "
-        "summary (string), parties (array of strings), "
+        "summary (string — a succinct plain-language summary of what the document is and says), "
+        "aims (string — what the document is trying to achieve), "
+        "parties (array of strings), "
         "key_terms (array of objects {term, detail}), "
+        "strengths (array of strings), "
+        "weaknesses (array of strings), "
+        "potential_pitfalls (array of strings — risks or ways this could go wrong in practice), "
         "issues (array of objects {severity: one of high|medium|low, issue, recommendation}), "
-        "missing_or_weak_clauses (array of strings), overall_recommendation (string)."
+        "missing_or_weak_clauses (array of strings), "
+        "overall_recommendation (string)."
     )
     content = await _chat(
         [{"role": "system", "content": system},
          {"role": "user", "content": f"Document text:\n\n{text[:60000]}"}],
-        response_json=True, max_tokens=2400,
+        response_json=True, max_tokens=3200,
     )
     try:
         data = json.loads(content)
     except Exception:  # noqa: BLE001 — model returned non-JSON; keep it visible, don't fabricate
-        return {"summary": content[:2000], "parties": [], "key_terms": [],
+        return {"summary": content[:2000], "aims": "", "parties": [], "key_terms": [],
+                "strengths": [], "weaknesses": [], "potential_pitfalls": [],
                 "issues": [], "missing_or_weak_clauses": [], "overall_recommendation": "",
                 "_parse_note": "model did not return valid JSON; showing raw summary"}
-    data.setdefault("parties", [])
-    data.setdefault("issues", [])
-    data.setdefault("missing_or_weak_clauses", [])
+    for key in ("parties", "key_terms", "strengths", "weaknesses",
+                "potential_pitfalls", "issues", "missing_or_weak_clauses"):
+        data.setdefault(key, [])
+    data.setdefault("aims", "")
     return data
 
 
