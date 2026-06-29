@@ -36,7 +36,7 @@ class ResultResponse(BaseModel):
 
 
 class MachineSummary(BaseModel):
-    doc_type: str
     machine_id: str
     verified: bool
     hash: str | None = None
+    doc_type: str | None = None   # set only for runtime-executed validation machines

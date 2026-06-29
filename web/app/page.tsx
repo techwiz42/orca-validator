@@ -74,14 +74,29 @@ export default function Home() {
   const [status, setStatus] = useState("");
   const [result, setResult] = useState<Result | null>(null);
   const [docId, setDocId] = useState<string | null>(null);
-  const [mermaidSrc, setMermaidSrc] = useState<string | null>(null);
+  const [pasteText, setPasteText] = useState("");
+  const [machines, setMachines] = useState<
+    { machine_id: string; mermaid: string | null; doc_type: string | null }[]
+  >([]);
 
   useEffect(() => {
-    fetch("/api/machines/contract_validation")
+    fetch("/api/machines")
       .then((r) => r.json())
-      .then((d) => setMermaidSrc(d.mermaid ?? null))
-      .catch(() => setMermaidSrc(null));
+      .then(async (list: { machine_id: string; doc_type: string | null }[]) => {
+        const out = await Promise.all(
+          list.map((m) =>
+            fetch(`/api/machines/${m.machine_id}`)
+              .then((r) => r.json())
+              .then((d) => ({ machine_id: m.machine_id, mermaid: d.mermaid ?? null, doc_type: m.doc_type }))
+              .catch(() => ({ machine_id: m.machine_id, mermaid: null, doc_type: m.doc_type })),
+          ),
+        );
+        setMachines(out);
+      })
+      .catch(() => setMachines([]));
   }, []);
+
+  const machineOrder = ["document_pipeline", "ingestion", "contract_validation", "ai_assessment"];
 
   async function validate(f: File) {
     setBusy(true);
@@ -181,6 +196,45 @@ export default function Home() {
             <span>{status}</span>
           </div>
         )}
+      </div>
+
+      <div style={PANEL}>
+        <p style={{ marginTop: 0, color: "#8b949e" }}>…or paste text directly:</p>
+        <textarea
+          value={pasteText}
+          onChange={(e) => setPasteText(e.target.value)}
+          placeholder="Paste contract or document text here…"
+          rows={5}
+          style={{
+            width: "100%",
+            boxSizing: "border-box",
+            background: "#0d1117",
+            color: "#e8e8e8",
+            border: "1px solid #30363d",
+            borderRadius: 6,
+            padding: 10,
+            fontFamily: "ui-monospace, SFMono-Regular, monospace",
+            fontSize: 13,
+          }}
+        />
+        <button
+          onClick={() =>
+            pasteText.trim() &&
+            validate(new File([pasteText], "pasted.txt", { type: "text/plain" }))
+          }
+          disabled={!pasteText.trim() || busy}
+          style={{
+            marginTop: 8,
+            padding: "6px 14px",
+            background: busy ? "#21262d" : "#238636",
+            color: "#fff",
+            border: "none",
+            borderRadius: 6,
+            cursor: pasteText.trim() && !busy ? "pointer" : "default",
+          }}
+        >
+          Validate pasted text
+        </button>
       </div>
 
       {result && (
@@ -326,8 +380,24 @@ export default function Home() {
       )}
 
       <section style={PANEL}>
-        <h3 style={{ marginTop: 0 }}>Validation machine — verified topology</h3>
-        <MachineDiagram source={mermaidSrc} />
+        <h3 style={{ marginTop: 0 }}>State machines — verified topology</h3>
+        <p style={{ color: "#8b949e", fontSize: 13, marginTop: 0 }}>
+          The validation is decomposed into a top-level pipeline and component machines, each
+          formally verified (reachable, deadlock-free, complete) before it can run.
+        </p>
+        {[...machines]
+          .sort((a, b) => machineOrder.indexOf(a.machine_id) - machineOrder.indexOf(b.machine_id))
+          .map((m) => (
+            <div key={m.machine_id} style={{ marginBottom: 20 }}>
+              <h4 style={{ margin: "8px 0" }}>
+                {m.machine_id}{" "}
+                {m.doc_type && (
+                  <span style={{ color: "#3fb950", fontSize: 12 }}>(runtime verdict)</span>
+                )}
+              </h4>
+              <MachineDiagram source={m.mermaid} id={m.machine_id} />
+            </div>
+          ))}
       </section>
     </main>
   );
