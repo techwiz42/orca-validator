@@ -10,6 +10,7 @@ import logging
 import httpx
 
 from backend.app.config import get_settings
+from backend.llm.budget import check_budget, record_usage
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ async def _chat(messages: list[dict], max_tokens: int = 2000, temperature: float
     s = get_settings()
     if not s.llm_enabled:
         raise RuntimeError("TOGETHER_API_KEY not set — LLM analysis/revision is disabled")
+    await check_budget()  # raises BudgetExceeded → analysis skipped (spend cap)
     payload: dict = {
         "model": s.TOGETHER_MODEL,
         "messages": messages,
@@ -34,7 +36,9 @@ async def _chat(messages: list[dict], max_tokens: int = 2000, temperature: float
             json=payload,
         )
         r.raise_for_status()
-        return r.json()["choices"][0]["message"]["content"]
+        resp = r.json()
+    await record_usage(int(resp.get("usage", {}).get("total_tokens", 0)))
+    return resp["choices"][0]["message"]["content"]
 
 
 async def analyze_contract(text: str) -> dict:

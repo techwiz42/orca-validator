@@ -20,7 +20,8 @@ from backend.app.config import get_settings
 from backend.app.database import AsyncSessionLocal
 from backend.models import Document, ValidationResult, ValidationRun
 from backend.ocr.extract import get_extractor
-from backend.ocr.reader import read_document
+from backend.ocr.parser_client import parse_document
+from backend.llm.budget import BudgetExceeded
 from backend.llm.together import analyze_contract, revise_contract
 from backend.orca.bridge import get_bridge
 from backend.storage.blobs import get_blob_store
@@ -51,7 +52,7 @@ async def run_validation(run_id: UUID) -> None:
         await bridge.get_or_create(doc_type, entity_id, {
             "document_id": document_id, "owner": owner, "tenant_id": owner,
         })
-        ocr = read_document(get_blob_store().path(blob_ref), dpi=settings.OCR_DPI)
+        ocr = await parse_document(get_blob_store().path(blob_ref), dpi=settings.OCR_DPI)
         if not ocr.ok:
             _, machine = await bridge.send(doc_type, entity_id, "EXTRACTION_FAILED", {"error": ocr.error})
         else:
@@ -79,6 +80,9 @@ async def run_validation(run_id: UUID) -> None:
             analysis = await analyze_contract(doc_text)
             revised_markdown = await revise_contract(doc_text, analysis)
             analysis_status = "done"
+        except BudgetExceeded:
+            logger.warning("LLM daily budget exceeded — skipping analysis for run %s", run_id)
+            analysis_status = "budget_exceeded"
         except Exception as e:  # noqa: BLE001
             logger.exception("LLM analysis failed for run %s", run_id)
             analysis = {"error": str(e)[:500]}

@@ -41,6 +41,13 @@ class Settings(BaseSettings):
     TOGETHER_API_KEY: str = Field(default="", description="empty → analysis/revision skipped")
     TOGETHER_MODEL: str = Field(default="meta-llama/Llama-3.3-70B-Instruct-Turbo")
     TOGETHER_BASE_URL: str = Field(default="https://api.together.xyz/v1")
+    # App-level spend cap: stop calling the LLM once this many tokens are used in a UTC day
+    # (a backstop in addition to the Together account spend limit). 0 → unlimited.
+    TOGETHER_DAILY_TOKEN_BUDGET: int = Field(default=2_000_000)
+
+    # Isolated parser service (untrusted-file parsing runs there, with no secrets/DB/egress).
+    # Empty → parse in-process (dev/tests). Set to http://parser:9000 in the deployment.
+    PARSER_URL: str = Field(default="")
 
     @property
     def llm_enabled(self) -> bool:

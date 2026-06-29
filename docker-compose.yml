@@ -12,13 +12,34 @@ services:
       API_KEY: ${API_KEY:-changeme-dev-key}
       TOGETHER_API_KEY: ${TOGETHER_API_KEY:-}        # set to enable AI analysis + revision
       TOGETHER_MODEL: ${TOGETHER_MODEL:-meta-llama/Llama-3.3-70B-Instruct-Turbo}
+      TOGETHER_DAILY_TOKEN_BUDGET: ${TOGETHER_DAILY_TOKEN_BUDGET:-2000000}  # app-level spend cap
+      PARSER_URL: http://parser:9000                 # untrusted-file parsing runs in isolation
     ports:
       - "127.0.0.1:8085:8000"   # host-local only; the web service reaches it via the compose net
     depends_on:
       - postgres
       - redis
+      - parser
     volumes:
       - blobs:/app/data/blobs
+    networks: [default, parsernet]
+    cpus: 1.0
+    mem_limit: 1g
+
+  # Isolated, sandboxed document parser: runs PyMuPDF/tesseract/python-docx on untrusted uploads
+  # with NO secrets, NO database, and NO network egress (parsernet is internal). A parser RCE
+  # has nothing to steal and nowhere to exfiltrate. Same image, different command.
+  parser:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: uvicorn backend.parser.app:app --host 0.0.0.0 --port 9000
+    networks: [parsernet]
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     cpus: 1.0
     mem_limit: 1g
 
@@ -57,6 +78,10 @@ services:
       - api
     cpus: 0.5
     mem_limit: 512m
+
+networks:
+  parsernet:
+    internal: true   # no route to the internet → the parser cannot exfiltrate
 
 volumes:
   pgdata:

@@ -22,6 +22,10 @@ _FITZ_EXTS = {"pdf", "png", "jpg", "jpeg", "tif", "tiff", "bmp", "gif", "webp",
               "epub", "xps", "fb2", "cbz", "svg"}
 _TEXT_EXTS = {"txt", "md", "markdown", "text", "csv", "log", "rtf"}
 
+# Abuse / decompression-bomb guards.
+MAX_PAGES = 100               # reject documents with more than this many pages
+MAX_RENDER_PIXELS = 25_000_000  # cap OCR-render size so a giant page can't OOM the parser
+
 
 def read_document(file_path: str, dpi: int = 200) -> OCRResult:
     ext = os.path.splitext(file_path)[1].lower().lstrip(".")
@@ -68,6 +72,9 @@ def _read_fitz(file_path: str, dpi: int) -> OCRResult:
         return OCRResult(error=f"PyMuPDF (fitz) not available: {e}")
 
     doc = fitz.open(file_path)
+    if doc.page_count > MAX_PAGES:
+        doc.close()
+        return OCRResult(error=f"document exceeds the {MAX_PAGES}-page limit ({doc.page_count} pages)")
     pages: list[dict] = []
     texts: list[str] = []
     try:
@@ -90,15 +97,25 @@ def _read_fitz(file_path: str, dpi: int) -> OCRResult:
 
 
 def _ocr_page_image(page, dpi: int) -> str | None:
-    """Render a page to PNG and OCR it with tesseract. None if tesseract is unavailable."""
+    """Render a page to PNG and OCR it with tesseract. None if tesseract is unavailable.
+
+    Caps the render resolution (image-bomb guard) so an enormous page can't allocate a
+    multi-gigabyte pixmap and OOM the parser.
+    """
     try:
         import pytesseract
         from PIL import Image
     except ImportError:
         return None
+    # Decompression-bomb guard for PIL, and a fitz-render-size cap computed BEFORE allocating.
+    Image.MAX_IMAGE_PIXELS = MAX_RENDER_PIXELS
+    rect = page.rect
+    est_px = (rect.width * dpi / 72.0) * (rect.height * dpi / 72.0)
+    if est_px > MAX_RENDER_PIXELS and est_px > 0:
+        dpi = max(36, int(dpi * (MAX_RENDER_PIXELS / est_px) ** 0.5))
     try:
         pix = page.get_pixmap(dpi=dpi)
         return pytesseract.image_to_string(Image.open(io.BytesIO(pix.tobytes("png"))))
-    except Exception as e:  # noqa: BLE001
-        logger.warning("tesseract OCR failed for a page: %s", e)
+    except Exception as e:  # noqa: BLE001 — includes PIL DecompressionBombError
+        logger.warning("tesseract OCR failed/blocked for a page: %s", e)
         return None
