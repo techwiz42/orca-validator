@@ -52,8 +52,8 @@ async def analyze_contract(text: str) -> dict:
     )
     content = await _chat(
         [{"role": "system", "content": system},
-         {"role": "user", "content": f"Contract text:\n\n{text[:16000]}"}],
-        response_json=True, max_tokens=2200,
+         {"role": "user", "content": f"Document text:\n\n{text[:60000]}"}],
+        response_json=True, max_tokens=2400,
     )
     try:
         data = json.loads(content)
@@ -67,21 +67,74 @@ async def analyze_contract(text: str) -> dict:
     return data
 
 
-async def revise_contract(text: str, analysis: dict) -> str:
+_CHUNK_CHARS = 8000
+_MAX_CHUNKS = 12  # bounds cost/latency; ~96k chars covers essentially any real contract
+
+
+def _split_into_chunks(text: str, max_chars: int = _CHUNK_CHARS) -> list[str]:
+    """Greedy split preferring paragraph > line > word boundaries near max_chars."""
+    chunks: list[str] = []
+    remaining = text.strip()
+    while len(remaining) > max_chars:
+        window = remaining[:max_chars]
+        brk = window.rfind("\n\n")
+        if brk < max_chars * 0.5:
+            brk = window.rfind("\n")
+        if brk < max_chars * 0.5:
+            brk = window.rfind(" ")
+        if brk < max_chars * 0.5:
+            brk = max_chars
+        chunks.append(remaining[:brk])
+        remaining = remaining[brk:].lstrip()
+    if remaining:
+        chunks.append(remaining)
+    return chunks or [text]
+
+
+_REVISE_SYS = (
+    "You are an editor producing a REDLINE of ONE SECTION of a longer document. Improve wording, "
+    "fix problems, and tighten weak or ambiguous language in this section, preserving its meaning. "
+    "Mark EVERY change inline: wrap text you REMOVE in {--double-minus braces--} and text you ADD in "
+    "{++double-plus braces++}. Leave unchanged text exactly as-is, with no markers. Use no other "
+    "change notation. Output ONLY the redlined section — no preamble, no explanation."
+)
+
+
+async def _revise_chunk(chunk: str) -> str:
+    return (await _chat(
+        [{"role": "system", "content": _REVISE_SYS},
+         {"role": "user", "content": chunk}],
+        max_tokens=4096, temperature=0.3,
+    )).strip()
+
+
+async def _draft_additions(missing: list) -> str:
+    if not missing:
+        return ""
     system = (
-        "You are a contract editor producing a REDLINE. Rewrite the contract to fix the issues and "
-        "add any missing or weak clauses, preserving the parties and original intent. Mark EVERY "
-        "change inline: wrap text you REMOVE in {--double-minus braces--} and text you ADD in "
-        "{++double-plus braces++}. Leave unchanged text exactly as-is, with no markers. Do not use "
-        "any other change notation. Output ONLY the redlined contract — no preamble, no explanation."
+        "Draft formal clauses for each item below as new document language. Wrap EACH drafted clause "
+        "entirely in {++double-plus braces++} so it renders as an addition. Output only the clauses."
     )
-    issues = json.dumps(analysis.get("issues", []))[:3000]
-    missing = json.dumps(analysis.get("missing_or_weak_clauses", []))[:1500]
+    user = "Draft additions for:\n- " + "\n- ".join(str(m) for m in missing[:12])
     return (await _chat(
         [{"role": "system", "content": system},
-         {"role": "user", "content":
-            f"Original contract:\n\n{text[:14000]}\n\n"
-            f"Issues to fix (JSON): {issues}\n"
-            f"Missing/weak clauses to add (JSON): {missing}"}],
-        max_tokens=4000, temperature=0.3,
+         {"role": "user", "content": user}],
+        max_tokens=2400, temperature=0.3,
     )).strip()
+
+
+async def revise_contract(text: str, analysis: dict) -> str:
+    # Redline the WHOLE document by chunking it — nothing is truncated to the first few pages.
+    chunks = _split_into_chunks(text)
+    truncated = len(chunks) > _MAX_CHUNKS
+    parts: list[str] = []
+    for chunk in chunks[:_MAX_CHUNKS]:
+        parts.append(await _revise_chunk(chunk))
+    redline = "\n\n".join(p for p in parts if p)
+    if truncated:
+        redline += "\n\n{++[Note: the document was very long; this redline covers its first portion.]++}"
+    # Always draft the missing/weak clauses as explicit additions so changes aren't deletions-only.
+    additions = await _draft_additions(analysis.get("missing_or_weak_clauses") or [])
+    if additions:
+        redline += "\n\n" + additions
+    return redline.strip()
