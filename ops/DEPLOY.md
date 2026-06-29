@@ -15,7 +15,20 @@ docker compose exec api alembic upgrade head   # apply migrations
 curl -s localhost:8080/health # {"status":"ok","checks":{"postgres":"ok","redis":"ok"}}
 ```
 
-nginx: install `ops/nginx/orca.cyberiad.ai.conf` into the droplet's nginx and reload.
+## Exposing it at orca.cyberiad.ai
+
+`orca.cyberiad.ai` is a sibling of the existing `*.cyberiad.ai` apps (memchat/paperclip), each
+of which has its **own per-domain cert** — there is no `*.cyberiad.ai` wildcard, and the builder
+wildcard only covers `*.builder.cyberiad.ai`. Three steps:
+
+1. **DNS** — add an A record `orca.cyberiad.ai → <droplet IP>` (it does not resolve yet).
+2. **Cert** — `certbot certonly --webroot -w /var/www/certbot -d orca.cyberiad.ai`
+   (the vhost ships the `/.well-known/acme-challenge/` location for HTTP-01).
+3. **nginx** — copy `ops/nginx/orca.cyberiad.ai.conf` to `/etc/nginx/sites-enabled/orca.cyberiad.ai`,
+   then `nginx -t && systemctl reload nginx`. It proxies to the **web** UI on `:3000`.
+
+The raw API (`:8080`) stays internal — the web proxies to it server-side. If programmatic API
+access is wanted publicly, give it its own subdomain/cert (e.g. `api.orca.cyberiad.ai → :8080`).
 
 ## Why it can't starve the builder (the co-location contract)
 
