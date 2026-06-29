@@ -12,7 +12,7 @@ make install                  # npm install (verifier) + pip install -e ".[dev]"
 make verify-machines          # topology gate — must pass before deploy
 docker compose up -d --build  # api + its OWN postgres + redis (CPU/mem limited)
 docker compose exec api alembic upgrade head   # apply migrations
-curl -s localhost:8080/health # {"status":"ok","checks":{"postgres":"ok","redis":"ok"}}
+curl -s localhost:8085/health # {"status":"ok","checks":{"postgres":"ok","redis":"ok"}}
 ```
 
 ## Exposing it at orca.cyberiad.ai
@@ -27,8 +27,8 @@ wildcard only covers `*.builder.cyberiad.ai`. Three steps:
 3. **nginx** — copy `ops/nginx/orca.cyberiad.ai.conf` to `/etc/nginx/sites-enabled/orca.cyberiad.ai`,
    then `nginx -t && systemctl reload nginx`. It proxies to the **web** UI on `:3000`.
 
-The raw API (`:8080`) stays internal — the web proxies to it server-side. If programmatic API
-access is wanted publicly, give it its own subdomain/cert (e.g. `api.orca.cyberiad.ai → :8080`).
+The raw API (`:8085`) stays internal — the web proxies to it server-side. If programmatic API
+access is wanted publicly, give it its own subdomain/cert (e.g. `api.orca.cyberiad.ai → :8085`).
 
 ## Why it can't starve the builder (the co-location contract)
 

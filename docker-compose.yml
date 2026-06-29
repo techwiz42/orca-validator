@@ -11,7 +11,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       API_KEY: ${API_KEY:-changeme-dev-key}
     ports:
-      - "8080:8000"
+      - "127.0.0.1:8085:8000"   # host-local only; the web service reaches it via the compose net
     depends_on:
       - postgres
       - redis
@@ -50,7 +50,7 @@ services:
       BACKEND_URL: http://api:8000
       API_KEY: ${API_KEY:-changeme-dev-key}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"   # nginx (orca.cyberiad.ai) proxies here; not internet-exposed
     depends_on:
       - api
     cpus: 0.5

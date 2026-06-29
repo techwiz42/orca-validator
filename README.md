@@ -22,7 +22,7 @@ make install                    # npm (verifier) + pip install -e ".[dev]"
 make verify-machines            # topology gate — must pass
 docker compose up -d --build    # api + web + its own postgres + redis (CPU/mem limited)
 docker compose exec api alembic upgrade head
-# API:  http://localhost:8080   (programmatic / CI)
+# API:  http://localhost:8085   (programmatic / CI)
 # UI:   http://localhost:3000   (drop a contract PDF → verdict + machine diagram)
 ```
 
