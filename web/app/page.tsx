@@ -49,7 +49,8 @@ function renderRedline(text: string) {
         </ins>
       );
     }
-    return <span key={i}>{p}</span>;
+    // plain segment — strip any stray/unbalanced markers the model may have left
+    return <span key={i}>{p.replace(/\{--|--\}|\{\+\+|\+\+\}/g, "")}</span>;
   });
 }
 

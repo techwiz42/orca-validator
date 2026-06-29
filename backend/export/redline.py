@@ -7,6 +7,7 @@ import re
 
 _DEL = re.compile(r"\{--([\s\S]*?)--\}")
 _INS = re.compile(r"\{\+\+([\s\S]*?)\+\+\}")
+_STRAY = re.compile(r"\{--|--\}|\{\+\+|\+\+\}")  # leftover unbalanced markers (model sloppiness)
 
 
 def clean_revision(redline: str | None) -> str:
@@ -14,4 +15,4 @@ def clean_revision(redline: str | None) -> str:
         return ""
     text = _DEL.sub("", redline)        # drop removed text
     text = _INS.sub(r"\1", text)        # keep added text
-    return text
+    return _STRAY.sub("", text)         # strip any stray/unbalanced markers
