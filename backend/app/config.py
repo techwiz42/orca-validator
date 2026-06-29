@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     MACHINES_DIR: str = Field(default="machines")
     # Bounded worker concurrency — OCR/LLM are the heavy bit; never unbounded.
     WORKER_CONCURRENCY: int = Field(default=2)
+    # When true, the API enqueues to Redis and the dedicated worker processes runs.
+    # Default false → in-process BackgroundTasks (simplest demo path).
+    USE_REDIS_QUEUE: bool = Field(default=False)
 
     # Blob storage (local volume now; an S3/Spaces adapter slots in behind storage/).
     STORAGE_DIR: str = Field(default="data/blobs")

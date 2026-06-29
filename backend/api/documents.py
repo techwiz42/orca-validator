@@ -4,9 +4,11 @@ from fastapi import (APIRouter, BackgroundTasks, Depends, File, Form, HTTPExcept
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.app.config import get_settings
 from backend.app.database import get_db
 from backend.app.state import VERIFIED_MACHINES
 from backend.deps import require_api_key
+from backend.queue import enqueue
 from backend.models import Document, ValidationResult, ValidationRun
 from backend.orca.registry import MACHINE_IDS, supported_doc_types
 from backend.pipeline.validate import run_validation
@@ -52,8 +54,11 @@ async def submit_document(
     db.add(run)
     await db.commit()
 
-    # MVP: run off-request on a BackgroundTask (the Redis worker swaps in behind this).
-    background.add_task(run_validation, run.id)
+    # Off-request processing: Redis worker if enabled, else in-process BackgroundTask.
+    if get_settings().USE_REDIS_QUEUE:
+        await enqueue(run.id)
+    else:
+        background.add_task(run_validation, run.id)
     return SubmitResponse(document_id=doc.id, run_id=run.id, status="queued")
 
 

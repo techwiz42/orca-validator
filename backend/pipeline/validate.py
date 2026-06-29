@@ -7,8 +7,12 @@ MVP runs synchronously (invoked via FastAPI BackgroundTasks). The Redis worker (
 in behind the same `run_validation` entrypoint later.
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC (matches the columns)
 
 from sqlalchemy import select
 
@@ -32,7 +36,7 @@ async def run_validation(run_id: UUID) -> None:
             return  # idempotent: never re-run a claimed/finished run
         doc = (await db.execute(select(Document).where(Document.id == run.document_id))).scalars().first()
         run.status = "running"
-        run.started_at = datetime.utcnow()
+        run.started_at = _utcnow()
         doc.status = "running"
         doc_type, blob_ref, owner, document_id = doc.doc_type, doc.blob_ref, doc.owner, str(doc.id)
         await db.commit()
@@ -69,7 +73,7 @@ async def run_validation(run_id: UUID) -> None:
             reasons=list(reasons), extracted_fields=fields, machine_context={},
         ))
         run.status = "done" if verdict in ("pass", "fail") else "failed"
-        run.finished_at = datetime.utcnow()
+        run.finished_at = _utcnow()
         if verdict == "error":
             run.error = "; ".join(map(str, reasons))[:1000]
         doc.status = run.status

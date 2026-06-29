@@ -1,10 +1,16 @@
 ORCA := node node_modules/@orcalang/orca-lang/dist/index.js
 
-.PHONY: install verify-machines dev test
+.PHONY: install verify-machines dev test migrate worker
 
 install:
 	npm install
 	pip install -e ".[dev]"
+
+migrate:
+	alembic upgrade head
+
+worker:
+	python -m backend.pipeline.worker
 
 # Topology-verify every machine. Non-zero exit fails the target (the CI + boot gate).
 verify-machines:

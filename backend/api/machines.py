@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from backend.app.state import VERIFIED_MACHINES
 from backend.orca.diagram import mermaid_for
@@ -9,9 +9,10 @@ router = APIRouter(tags=["machines"])
 
 
 @router.get("/machines", response_model=list[MachineSummary])
-async def list_machines():
+async def list_machines(limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0)):
+    doc_types = supported_doc_types()[offset:offset + limit]
     out = []
-    for dt in supported_doc_types():
+    for dt in doc_types:
         mid = MACHINE_IDS[dt]
         h = VERIFIED_MACHINES.get(f"{mid}.orca.md")
         out.append(MachineSummary(doc_type=dt, machine_id=mid, verified=h is not None, hash=h))
