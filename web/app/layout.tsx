@@ -33,6 +33,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           upload confidential material ·{" "}
           <a href="/privacy" style={{ color: "#58a6ff" }}>Privacy</a> ·{" "}
           <a href="/tos" style={{ color: "#58a6ff" }}>Terms</a>
+          <div style={{ marginTop: 8 }}>
+            Verdicts are formally verified by{" "}
+            <a
+              href="https://github.com/jascal/orca-lang"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "#58a6ff" }}
+            >
+              ORCA · github.com/jascal/orca-lang
+            </a>
+          </div>
         </footer>
       </body>
     </html>

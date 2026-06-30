@@ -16,11 +16,12 @@ logger = logging.getLogger("orca_worker")
 
 
 async def _run_one(run_id, sem: asyncio.Semaphore) -> None:
-    async with sem:
-        try:
-            await run_validation(run_id)
-        except Exception:  # noqa: BLE001 — never let one job kill the worker
-            logger.exception("worker: run %s failed", run_id)
+    try:
+        await run_validation(run_id)
+    except Exception:  # noqa: BLE001 — never let one job kill the worker
+        logger.exception("worker: run %s failed", run_id)
+    finally:
+        sem.release()
 
 
 async def main() -> None:
@@ -29,8 +30,12 @@ async def main() -> None:
     inflight: set[asyncio.Task] = set()
     logger.info("worker started (concurrency=%d)", settings.WORKER_CONCURRENCY)
     while True:
+        # Acquire a slot BEFORE pulling work: at most WORKER_CONCURRENCY jobs leave Redis at once,
+        # the rest stay durably queued (a crash loses only the in-flight few, not the backlog).
+        await sem.acquire()
         run_id = await dequeue(timeout=5)
         if run_id is None:
+            sem.release()  # nothing queued — release and poll again
             continue
         task = asyncio.create_task(_run_one(run_id, sem))
         inflight.add(task)

@@ -14,6 +14,7 @@ services:
       TOGETHER_MODEL: ${TOGETHER_MODEL:-meta-llama/Llama-3.3-70B-Instruct-Turbo}
       TOGETHER_DAILY_TOKEN_BUDGET: ${TOGETHER_DAILY_TOKEN_BUDGET:-2000000}  # app-level spend cap
       PARSER_URL: http://parser:9000                 # untrusted-file parsing runs in isolation
+      USE_REDIS_QUEUE: "true"                         # enqueue runs to Redis; the worker processes them
     ports:
       - "127.0.0.1:8085:8000"   # host-local only; the web service reaches it via the compose net
     depends_on:
@@ -43,8 +44,32 @@ services:
     cpus: 1.0
     mem_limit: 1g
 
-  # NOTE: MVP runs validation in-process via FastAPI BackgroundTasks. The dedicated
-  # Redis worker (task §4.1) is added here as a second service behind the same image.
+  # Validation worker: consumes the Redis queue with bounded concurrency (WORKER_CONCURRENCY).
+  # The heavy OCR + LLM + FSM work runs here — off the API event loop, durable across API restarts,
+  # and never unbounded. Scale by raising WORKER_CONCURRENCY or running more worker replicas.
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: python -m backend.pipeline.worker
+    environment:
+      DATABASE_URL: postgresql://orca:orca@postgres:5432/orca
+      REDIS_URL: redis://redis:6379/0
+      TOGETHER_API_KEY: ${TOGETHER_API_KEY:-}
+      TOGETHER_MODEL: ${TOGETHER_MODEL:-meta-llama/Llama-3.3-70B-Instruct-Turbo}
+      TOGETHER_DAILY_TOKEN_BUDGET: ${TOGETHER_DAILY_TOKEN_BUDGET:-2000000}
+      PARSER_URL: http://parser:9000
+      USE_REDIS_QUEUE: "true"
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}     # max simultaneous validations on this worker
+    depends_on:
+      - postgres
+      - redis
+      - parser
+    volumes:
+      - blobs:/app/data/blobs   # reads the uploaded blob the API wrote
+    networks: [default, parsernet]
+    cpus: 1.0
+    mem_limit: 1g
 
   postgres:
     image: postgres:16
