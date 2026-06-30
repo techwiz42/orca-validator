@@ -76,6 +76,7 @@ export default function Home() {
   const [result, setResult] = useState<Result | null>(null);
   const [docId, setDocId] = useState<string | null>(null);
   const [pasteText, setPasteText] = useState("");
+  const [temperature, setTemperature] = useState(0.03);
 
   async function validate(f: File) {
     setBusy(true);
@@ -85,6 +86,7 @@ export default function Home() {
     const form = new FormData();
     form.append("file", f);
     form.append("doc_type", "contract");
+    form.append("temperature", String(temperature));
     const res = await fetch("/api/documents", { method: "POST", body: form });
     if (!res.ok) {
       setStatus("upload failed");
@@ -175,6 +177,30 @@ export default function Home() {
             <span>{status}</span>
           </div>
         )}
+      </div>
+
+      <div style={PANEL}>
+        <label style={{ display: "flex", alignItems: "center", gap: 12, color: "#8b949e", fontSize: 14 }}>
+          <span style={{ whiteSpace: "nowrap" }}>LLM temperature</span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={temperature}
+            onChange={(e) => setTemperature(parseFloat(e.target.value))}
+            disabled={busy}
+            style={{ flex: 1 }}
+          />
+          <span style={{ width: 44, textAlign: "right", color: "#e8e8e8", fontVariantNumeric: "tabular-nums" }}>
+            {temperature.toFixed(2)}
+          </span>
+        </label>
+        <p style={{ margin: "8px 0 0", color: "#6e7681", fontSize: 12 }}>
+          Lower = more deterministic &amp; consistent; higher = more varied. Applies to the analysis,
+          revision, and state-machine extraction. Structured outputs (the analysis JSON and the
+          extracted machine) can degrade at very high values.
+        </p>
       </div>
 
       <div style={PANEL}>

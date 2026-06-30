@@ -32,7 +32,7 @@ from backend.storage.blobs import get_blob_store
 logger = logging.getLogger(__name__)
 
 
-async def run_validation(run_id: UUID) -> None:
+async def run_validation(run_id: UUID, temperature: float = 0.03) -> None:
     settings = get_settings()
 
     async with AsyncSessionLocal() as db:
@@ -80,8 +80,8 @@ async def run_validation(run_id: UUID) -> None:
     analysis_status = "skipped"
     if doc_text and verdict != "error" and settings.llm_enabled:
         try:
-            analysis = await analyze_contract(doc_text)
-            revised_markdown = await revise_contract(doc_text, analysis)
+            analysis = await analyze_contract(doc_text, temperature)
+            revised_markdown = await revise_contract(doc_text, analysis, temperature)
             analysis_status = "done"
         except BudgetExceeded:
             logger.warning("LLM daily budget exceeded — skipping analysis for run %s", run_id)
@@ -96,7 +96,7 @@ async def run_validation(run_id: UUID) -> None:
     document_fsm: dict = {}
     if doc_text and verdict != "error" and settings.llm_enabled and analysis_status == "done":
         try:
-            orca_md = await extract_state_machine(doc_text)
+            orca_md = await extract_state_machine(doc_text, temperature)
             document_fsm = await asyncio.to_thread(verify_and_compile, orca_md)
         except BudgetExceeded:
             document_fsm = {"verified": False, "mermaid": None, "report": "skipped (LLM budget reached)"}

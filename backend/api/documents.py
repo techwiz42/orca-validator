@@ -33,12 +33,14 @@ async def _latest_run(db: AsyncSession, document_id: UUID) -> ValidationRun | No
 async def submit_document(
     background: BackgroundTasks,
     doc_type: str = Form("contract"),
+    temperature: float = Form(0.03),
     file: UploadFile = File(...),
     subject: str = Depends(require_api_key),
     db: AsyncSession = Depends(get_db),
 ):
     if doc_type not in supported_doc_types():
         raise HTTPException(400, f"unsupported doc_type {doc_type!r}; supported: {supported_doc_types()}")
+    temperature = max(0.0, min(1.0, temperature))  # LLM temperature (UI slider); clamp to a sane range
     data = await file.read()
     if not data:
         raise HTTPException(400, "empty upload")
@@ -63,7 +65,7 @@ async def submit_document(
     if get_settings().USE_REDIS_QUEUE:
         await enqueue(run.id)
     else:
-        background.add_task(run_validation, run.id)
+        background.add_task(run_validation, run.id, temperature)
     return SubmitResponse(document_id=doc.id, run_id=run.id, status="queued")
 
 

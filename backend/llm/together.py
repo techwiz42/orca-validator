@@ -42,7 +42,7 @@ async def _chat(messages: list[dict], max_tokens: int = 2000, temperature: float
     return resp["choices"][0]["message"]["content"]
 
 
-async def analyze_contract(text: str) -> dict:
+async def analyze_contract(text: str, temperature: float = 0.022) -> dict:
     system = (
         "You are a meticulous document analyst. Analyze the document and respond with JSON only, "
         "using exactly these keys: "
@@ -60,7 +60,7 @@ async def analyze_contract(text: str) -> dict:
     content = await _chat(
         [{"role": "system", "content": system},
          {"role": "user", "content": f"Document text:\n\n{text[:60000]}"}],
-        response_json=True, max_tokens=3200,
+        response_json=True, max_tokens=3200, temperature=temperature,
     )
     try:
         data = json.loads(content)
@@ -105,12 +105,12 @@ RULES (a verifier will check these):
 - Output ONLY the .orca.md document — no preamble, no explanation, no ``` fences."""
 
 
-async def extract_state_machine(text: str) -> str:
+async def extract_state_machine(text: str, temperature: float = 0.033) -> str:
     """Extract the FSM the document itself expresses, as an ORCA .orca.md machine."""
     md = await _chat(
         [{"role": "system", "content": "You are a systems analyst. " + _FSM_FORMAT},
          {"role": "user", "content": f"Document:\n\n{text[:40000]}"}],
-        max_tokens=1500, temperature=0.033,
+        max_tokens=1500, temperature=temperature,
     )
     md = md.strip()
     if md.startswith("```"):  # strip accidental code fences
@@ -157,15 +157,15 @@ _REVISE_SYS = (
 )
 
 
-async def _revise_chunk(chunk: str) -> str:
+async def _revise_chunk(chunk: str, temperature: float = 0.033) -> str:
     return (await _chat(
         [{"role": "system", "content": _REVISE_SYS},
          {"role": "user", "content": chunk}],
-        max_tokens=4096, temperature=0.033,
+        max_tokens=4096, temperature=temperature,
     )).strip()
 
 
-async def _draft_additions(missing: list) -> str:
+async def _draft_additions(missing: list, temperature: float = 0.033) -> str:
     if not missing:
         return ""
     system = (
@@ -176,22 +176,22 @@ async def _draft_additions(missing: list) -> str:
     return (await _chat(
         [{"role": "system", "content": system},
          {"role": "user", "content": user}],
-        max_tokens=2400, temperature=0.033,
+        max_tokens=2400, temperature=temperature,
     )).strip()
 
 
-async def revise_contract(text: str, analysis: dict) -> str:
+async def revise_contract(text: str, analysis: dict, temperature: float = 0.033) -> str:
     # Redline the WHOLE document by chunking it — nothing is truncated to the first few pages.
     chunks = _split_into_chunks(text)
     truncated = len(chunks) > _MAX_CHUNKS
     parts: list[str] = []
     for chunk in chunks[:_MAX_CHUNKS]:
-        parts.append(await _revise_chunk(chunk))
+        parts.append(await _revise_chunk(chunk, temperature))
     redline = "\n\n".join(p for p in parts if p)
     if truncated:
         redline += "\n\n{++[Note: the document was very long; this redline covers its first portion.]++}"
     # Always draft the missing/weak clauses as explicit additions so changes aren't deletions-only.
-    additions = await _draft_additions(analysis.get("missing_or_weak_clauses") or [])
+    additions = await _draft_additions(analysis.get("missing_or_weak_clauses") or [], temperature)
     if additions:
         redline += "\n\n" + additions
     return redline.strip()
