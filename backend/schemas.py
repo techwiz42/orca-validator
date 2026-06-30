@@ -26,6 +26,7 @@ class ResultResponse(BaseModel):
     final_state: str | None = None
     reasons: list = []
     extracted_fields: dict = {}
+    document_type: str | None = None      # the kind of document detected (drives the required-field set)
     machine_id: str | None = None
     machine_hash: str | None = None
     temperature: float | None = None      # LLM temperature used for this run (the upload's slider value)

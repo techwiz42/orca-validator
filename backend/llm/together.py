@@ -76,6 +76,48 @@ async def analyze_contract(text: str, temperature: float = 0.022) -> dict:
     return data
 
 
+async def classify_and_check_fields(text: str, temperature: float = 0.022) -> dict:
+    """Classify the document, then check the fields that matter FOR THAT KIND of document.
+
+    Replaces the contract-only required-field check so a resume/invoice/letter isn't judged against
+    contract fields. Returns {document_type, fields:{name:present}, missing_fields, missing_count} —
+    the same shape the verified machine's record_extracted consumes (missing_count drives the verdict).
+    """
+    system = (
+        "You are a document analyst. FIRST identify the KIND of document. THEN list the 3-6 fields or "
+        "elements that a well-formed document OF THAT KIND should contain — fields that genuinely "
+        "matter for this kind, NOT generic ones — and whether each is present in the text. "
+        "Respond with JSON only: {\"document_type\": string (e.g. 'employment contract', 'invoice', "
+        "'cover letter', 'resume', 'research paper', 'privacy policy', 'meeting minutes'), "
+        "\"required_fields\": [{\"name\": string in snake_case, \"present\": boolean}]}. "
+        "Examples — contract: parties, effective_date, term, signatures, governing_law; "
+        "invoice: invoice_number, invoice_date, total_amount, vendor, line_items; "
+        "resume: contact_info, work_experience, education, skills; "
+        "letter: date, recipient, sender, signature."
+    )
+    content = await _chat(
+        [{"role": "system", "content": system},
+         {"role": "user", "content": f"Document text:\n\n{text[:60000]}"}],
+        response_json=True, max_tokens=900, temperature=temperature,
+    )
+    try:
+        data = json.loads(content)
+    except Exception:  # noqa: BLE001 — non-JSON: don't fabricate a verdict, treat as no requirements
+        return {"document_type": "document", "fields": {}, "missing_fields": [], "missing_count": 0}
+    fields: dict[str, bool] = {}
+    for f in data.get("required_fields") or []:
+        name = str(f.get("name", "")).strip()[:64]
+        if name:
+            fields[name] = bool(f.get("present"))
+    missing = [n for n, present in fields.items() if not present]
+    return {
+        "document_type": str(data.get("document_type") or "document")[:128],
+        "fields": fields,
+        "missing_fields": missing,
+        "missing_count": len(missing),
+    }
+
+
 _FSM_FORMAT = """Express the lifecycle / process the document describes as a state machine in
 ORCA Markdown. Follow this format EXACTLY:
 

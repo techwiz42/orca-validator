@@ -33,6 +33,7 @@ type Result = {
   revised_redline?: string;
   document_fsm?: { mermaid?: string | null; verified?: boolean; report?: string };
   temperature?: number;
+  document_type?: string;
 };
 
 // Render {--removed--}/{++added++} markup as red (struck) / green spans. React escapes the
@@ -255,21 +256,31 @@ export default function Home() {
             <h2 style={{ color: verdictColor, marginTop: 0 }}>
               Verdict: {result.verdict?.toUpperCase()}
             </h2>
-            <p style={{ color: "#8b949e", fontSize: 13 }}>
+            {result.document_type && (
+              <p style={{ color: "#e8e8e8", marginTop: 0, marginBottom: 6 }}>
+                Detected document type: <strong>{result.document_type}</strong>
+              </p>
+            )}
+            <p style={{ color: "#8b949e", fontSize: 13, marginTop: 0 }}>
               Machine-verified structural verdict (state <code>{result.final_state}</code>) ·
               verified machine <code>{result.machine_id}</code> ({result.machine_hash?.slice(0, 12)})
             </p>
             {result.reasons && result.reasons.length > 0 && (
               <ul>{result.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>
             )}
-            {result.extracted_fields && (
-              <ul style={{ columns: 2 }}>
+            {result.extracted_fields && Object.keys(result.extracted_fields).length > 0 && (
+              <>
+                <p style={{ marginBottom: 4 }}>
+                  <strong>Expected fields{result.document_type ? ` for a ${result.document_type}` : ""}</strong>
+                </p>
+                <ul style={{ columns: 2, marginTop: 0 }}>
                 {Object.entries(result.extracted_fields).map(([k, v]) => (
                   <li key={k} style={{ color: v ? "#3fb950" : "#f85149" }}>
                     {k}: {v ? "✓" : "✗ missing"}
                   </li>
                 ))}
-              </ul>
+                </ul>
+              </>
             )}
           </section>
 

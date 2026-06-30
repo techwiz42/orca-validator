@@ -24,7 +24,8 @@ import asyncio
 
 from backend.ocr.parser_client import parse_document
 from backend.llm.budget import BudgetExceeded
-from backend.llm.together import analyze_contract, extract_state_machine, revise_contract
+from backend.llm.together import (analyze_contract, classify_and_check_fields,
+                                  extract_state_machine, revise_contract)
 from backend.orca.document_fsm import verify_and_compile
 from backend.orca.bridge import get_bridge
 from backend.storage.blobs import get_blob_store
@@ -51,6 +52,7 @@ async def run_validation(run_id: UUID) -> None:
     entity_id = str(run_id)
     verdict, final_state, reasons, fields = "error", "error", ["unknown"], {}
     doc_text = ""
+    document_type = doc_type  # what kind of document this actually is (default to the requested type)
 
     try:
         await bridge.get_or_create(doc_type, entity_id, {
@@ -61,7 +63,13 @@ async def run_validation(run_id: UUID) -> None:
             _, machine = await bridge.send(doc_type, entity_id, "EXTRACTION_FAILED", {"error": ocr.error})
         else:
             doc_text = ocr.raw_text
-            ext = get_extractor(doc_type, settings.EXTRACTOR).extract(ocr)
+            # Context-aware required fields: classify the document and check the fields that matter
+            # for THAT kind. Falls back to the deterministic contract extractor when no LLM is set.
+            if settings.llm_enabled:
+                ext = await classify_and_check_fields(doc_text, temperature)
+                document_type = ext.get("document_type", doc_type)
+            else:
+                ext = get_extractor(doc_type, settings.EXTRACTOR).extract(ocr)
             fields = ext["fields"]
             await bridge.send(doc_type, entity_id, "EXTRACTED", ext)
             _, machine = await bridge.send(doc_type, entity_id, "EVALUATE", {})
@@ -110,7 +118,7 @@ async def run_validation(run_id: UUID) -> None:
         doc = (await db.execute(select(Document).where(Document.id == run.document_id))).scalars().first()
         db.add(ValidationResult(
             run_id=run_id, verdict=verdict, final_state=final_state,
-            reasons=list(reasons), extracted_fields=fields, machine_context={},
+            reasons=list(reasons), extracted_fields=fields, machine_context={"document_type": document_type},
             analysis=analysis, revised_markdown=revised_markdown, analysis_status=analysis_status,
             document_fsm=document_fsm,
         ))
