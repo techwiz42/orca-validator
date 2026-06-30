@@ -32,6 +32,7 @@ type Result = {
   revised_available?: boolean;
   revised_redline?: string;
   document_fsm?: { mermaid?: string | null; verified?: boolean; report?: string };
+  temperature?: number;
 };
 
 // Render {--removed--}/{++added++} markup as red (struck) / green spans. React escapes the
@@ -274,7 +275,11 @@ export default function Home() {
 
           <section style={PANEL}>
             <h3 style={{ marginTop: 0 }}>
-              Analysis <span style={{ color: "#8b949e", fontSize: 12 }}>(AI-assisted)</span>
+              Analysis{" "}
+              <span style={{ color: "#8b949e", fontSize: 12 }}>
+                (AI-assisted
+                {result.temperature != null ? ` · analyzed at temperature ${result.temperature.toFixed(2)}` : ""})
+              </span>
             </h3>
             {result.analysis_status === "skipped" && (
               <p style={{ color: "#8b949e" }}>
