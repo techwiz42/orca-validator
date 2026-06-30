@@ -16,7 +16,7 @@ from backend.llm.budget import check_budget, record_usage
 logger = logging.getLogger(__name__)
 
 
-async def _chat(messages: list[dict], max_tokens: int = 2000, temperature: float = 0.067,
+async def _chat(messages: list[dict], max_tokens: int = 2000, temperature: float = 0.022,
                 response_json: bool = False) -> str:
     s = get_settings()
     if not s.llm_enabled:
@@ -110,7 +110,7 @@ async def extract_state_machine(text: str) -> str:
     md = await _chat(
         [{"role": "system", "content": "You are a systems analyst. " + _FSM_FORMAT},
          {"role": "user", "content": f"Document:\n\n{text[:40000]}"}],
-        max_tokens=1500, temperature=0.1,
+        max_tokens=1500, temperature=0.033,
     )
     md = md.strip()
     if md.startswith("```"):  # strip accidental code fences
@@ -161,7 +161,7 @@ async def _revise_chunk(chunk: str) -> str:
     return (await _chat(
         [{"role": "system", "content": _REVISE_SYS},
          {"role": "user", "content": chunk}],
-        max_tokens=4096, temperature=0.1,
+        max_tokens=4096, temperature=0.033,
     )).strip()
 
 
@@ -176,7 +176,7 @@ async def _draft_additions(missing: list) -> str:
     return (await _chat(
         [{"role": "system", "content": system},
          {"role": "user", "content": user}],
-        max_tokens=2400, temperature=0.1,
+        max_tokens=2400, temperature=0.033,
     )).strip()
 
 

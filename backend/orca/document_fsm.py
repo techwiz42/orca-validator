@@ -36,7 +36,7 @@ def _state_labels(orca_md: str) -> dict[str, str]:
             if t.startswith(">"):
                 desc = t.lstrip(">").strip()
                 break
-        desc = desc.replace('"', "").replace("\n", " ").strip()
+        desc = desc.replace('"', "").replace(":", "").replace("\n", " ").strip()
         # a short description makes a good box label; a long sentence does not — fall back to the
         # humanized id in that case (clean "Draft" beats a truncated paragraph).
         labels[sid] = desc if 0 < len(desc) <= 45 else _humanize(sid)
@@ -50,7 +50,9 @@ def _label_mermaid(mermaid: str | None, orca_md: str) -> str | None:
     labels = _state_labels(orca_md)
     if not labels:
         return mermaid
-    decls = [f'  state "{lab}" as {sid}' for sid, lab in labels.items()]
+    # mermaid description form: `id : Label` — labels the state the transitions already reference
+    # (more robust than the `state "Label" as id` alias).
+    decls = [f"  {sid} : {lab}" for sid, lab in labels.items()]
     lines = mermaid.splitlines()
     # insert after the 'direction ...' line if present, else just after the header
     idx = next((i for i, l in enumerate(lines) if l.strip().startswith("direction")), None)
