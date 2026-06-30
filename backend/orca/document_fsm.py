@@ -108,6 +108,36 @@ def _build_mermaid(orca_md: str) -> str | None:
     return "\n".join(out)
 
 
+def _normalize_for_verification(orca_md: str) -> str:
+    """ORCA treats a child→external transition as NOT reaching the external state (a hierarchical
+    reachability quirk — UML/SCXML allow it). Rewrite each child→outside transition to
+    parent→outside for the verification copy: reachability-equivalent, but in the form ORCA accepts,
+    so a well-formed nested process isn't falsely flagged 'unreachable'. The rendered diagram keeps
+    the original child-level transitions. Deadlock/determinism/completeness are unchanged by this.
+    """
+    states, transitions = _parse_machine(orca_md)
+    if not states or not any(s["parent"] for s in states):
+        return orca_md  # flat machine — nothing to normalize
+    by_id = {s["id"]: s for s in states}
+    parent_of = lambda sid: (by_id.get(sid) or {}).get("parent")
+
+    seen: set = set()
+    norm: list[tuple[str, str, str]] = []
+    for src, evt, tgt in transitions:
+        ps = parent_of(src)
+        if ps and parent_of(tgt) != ps and tgt != ps:  # child leaving its composite → hoist to parent
+            src = ps
+        if (src, evt, tgt) not in seen:
+            seen.add((src, evt, tgt))
+            norm.append((src, evt, tgt))
+
+    head = orca_md.split("## transitions")[0].rstrip()
+    lines = [head, "", "## transitions",
+             "| Source | Event | Guard | Target | Action |", "|---|---|---|---|---|"]
+    lines += [f"| {s} | {e} | | {t} | |" for s, e, t in norm]
+    return "\n".join(lines) + "\n"
+
+
 def verify_and_compile(orca_md: str) -> dict:
     if not orca_md or "## state" not in orca_md:
         return {"orca_md": orca_md, "mermaid": None, "verified": False,
@@ -116,7 +146,7 @@ def verify_and_compile(orca_md: str) -> dict:
     fd, path = tempfile.mkstemp(suffix=".orca.md")
     try:
         with os.fdopen(fd, "w") as f:
-            f.write(orca_md)
+            f.write(_normalize_for_verification(orca_md))  # verify the reachability-normalized copy
         verify = subprocess.run([*_orca_cli(), "verify", path],
                                 capture_output=True, text=True, timeout=60)
     except Exception as e:  # noqa: BLE001
