@@ -143,11 +143,32 @@ ORCA Markdown. Follow this format EXACTLY:
 |---|---|---|---|---|
 | state_in_snake_case | EVENT_IN_UPPER_SNAKE | | terminal_state | |
 
+HIERARCHY — use ONLY when a phase has its own internal sub-lifecycle:
+Make that phase a COMPOSITE state: write the parent as `## state parent` (NO [initial]/[final]) and
+nest its child states one heading level deeper as `### state child`, marking exactly ONE child
+[initial]. Transitions may target the parent (which enters its initial child) or any child directly.
+Example — an "active" phase that cycles internally:
+
+## state active
+> Active
+- ignore: *
+
+### state in_good_standing [initial]
+> In good standing
+- ignore: *
+
+### state in_dispute
+> In dispute
+- ignore: *
+
 RULES (a verifier will check these):
 - The FIRST line MUST be exactly `# machine NameInPascalCase` — include the literal word "machine".
-- Exactly ONE state marked [initial]; mark every terminal state [final].
-- Every NON-final state must have at least one outgoing transition AND a "- ignore: *" line.
-- Every state must be reachable from the initial state.
+- Exactly ONE top-level state marked [initial]; mark every terminal state [final]. Each composite
+  has exactly ONE child marked [initial]. A composite parent is NOT marked [initial] or [final].
+- Every non-final state (parents and children) needs at least one outgoing transition AND a
+  "- ignore: *" line.
+- Every state must be reachable from the initial state. Nest at most 2 levels deep, and ONLY when
+  the document genuinely describes sub-states within a phase — otherwise keep it flat.
 - Model the document's REAL stages/lifecycle (e.g. a contract: drafting → effective → active →
   renewal/termination; an agreement's obligations as conditional transitions).
 - Output ONLY the .orca.md document — no preamble, no explanation, no ``` fences."""
