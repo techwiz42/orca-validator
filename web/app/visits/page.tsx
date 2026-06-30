@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 
 type Visit = { ip: string; path: string; user_agent: string | null; hit_at: string | null };
-type VisitsResponse = { total: number; unique_ips: number; showing: number; visits: Visit[] };
+type VisitsResponse = {
+  total: number;
+  app_total: number;
+  unique_ips: number;
+  app_only: boolean;
+  showing: number;
+  visits: Visit[];
+};
 
 const KEY_STORAGE = "orca_admin_key";
 
@@ -12,19 +19,20 @@ export default function VisitsPage() {
   const [data, setData] = useState<VisitsResponse | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [appOnly, setAppOnly] = useState(true);  // hide scanner probes by default
 
   useEffect(() => {
     const saved = typeof window !== "undefined" ? window.localStorage.getItem(KEY_STORAGE) : null;
     if (saved) setApiKey(saved);
   }, []);
 
-  async function load() {
+  async function load(only = appOnly) {
     if (!apiKey) return;
     setBusy(true);
     setError("");
     setData(null);
     try {
-      const res = await fetch("/api/visits?limit=1000", {
+      const res = await fetch(`/api/visits?limit=1000&app_only=${only}`, {
         headers: { Authorization: `Bearer ${apiKey}` },
       });
       if (res.status === 401) {
@@ -78,7 +86,7 @@ export default function VisitsPage() {
           }}
         />
         <button
-          onClick={load}
+          onClick={() => load()}
           disabled={!apiKey || busy}
           style={{
             padding: "8px 16px",
@@ -93,14 +101,28 @@ export default function VisitsPage() {
         </button>
       </div>
 
+      <label style={{ display: "flex", alignItems: "center", gap: 8, color: "#8b949e", marginBottom: 16, cursor: "pointer" }}>
+        <input
+          type="checkbox"
+          checked={appOnly}
+          onChange={(e) => {
+            setAppOnly(e.target.checked);
+            if (data) load(e.target.checked);
+          }}
+        />
+        Real visits only (hide scanner probes)
+      </label>
+
       {error && <p style={{ color: "#f85149" }}>{error}</p>}
 
       {data && (
         <>
           <p style={{ color: "#8b949e" }}>
-            <strong style={{ color: "#e8e8e8" }}>{data.total}</strong> total hits ·{" "}
+            <strong style={{ color: "#e8e8e8" }}>{data.app_total}</strong> real visits ·{" "}
+            <strong style={{ color: "#e8e8e8" }}>{data.total}</strong> total hits (
+            {data.total - data.app_total} probes) ·{" "}
             <strong style={{ color: "#e8e8e8" }}>{data.unique_ips}</strong> unique IPs · showing{" "}
-            {data.showing} most recent
+            {data.showing}
           </p>
           <div style={{ overflowX: "auto", maxHeight: "70vh", overflowY: "auto", border: "1px solid #30363d", borderRadius: 8 }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>

@@ -14,6 +14,9 @@ from backend.models import Visit
 
 router = APIRouter(tags=["visits"])
 
+# The real Next.js routes. Everything else is a probe / scanner hitting a non-existent path.
+APP_PATHS = ("/", "/privacy", "/tos", "/visits")
+
 
 class VisitIn(BaseModel):
     ip: str
@@ -39,18 +42,25 @@ async def record_visit(
 @router.get("/visits")
 async def list_visits(
     limit: int = 500,
+    app_only: bool = False,
     subject: str = Depends(require_api_key),
     db: AsyncSession = Depends(get_db),
 ):
     limit = max(1, min(5000, limit))
-    rows = (await db.execute(
-        select(Visit).order_by(Visit.hit_at.desc()).limit(limit)
-    )).scalars().all()
+    q = select(Visit).order_by(Visit.hit_at.desc())
+    if app_only:
+        q = q.where(Visit.path.in_(APP_PATHS))   # filter probes out of the query, not just the view
+    rows = (await db.execute(q.limit(limit))).scalars().all()
     total = (await db.execute(select(func.count()).select_from(Visit))).scalar() or 0
+    app_total = (await db.execute(
+        select(func.count()).select_from(Visit).where(Visit.path.in_(APP_PATHS))
+    )).scalar() or 0
     unique = (await db.execute(select(func.count(func.distinct(Visit.ip))))).scalar() or 0
     return {
         "total": total,
+        "app_total": app_total,
         "unique_ips": unique,
+        "app_only": app_only,
         "showing": len(rows),
         "visits": [
             {
