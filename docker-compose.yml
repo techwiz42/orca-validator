@@ -55,6 +55,7 @@ services:
     environment:
       DATABASE_URL: postgresql://orca:orca@postgres:5432/orca
       REDIS_URL: redis://redis:6379/0
+      API_KEY: ${API_KEY:-changeme-dev-key}            # required by Settings (worker serves no requests)
       TOGETHER_API_KEY: ${TOGETHER_API_KEY:-}
       TOGETHER_MODEL: ${TOGETHER_MODEL:-meta-llama/Llama-3.3-70B-Instruct-Turbo}
       TOGETHER_DAILY_TOKEN_BUDGET: ${TOGETHER_DAILY_TOKEN_BUDGET:-2000000}
