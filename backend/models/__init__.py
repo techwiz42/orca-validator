@@ -25,6 +25,17 @@ class Document(Base):
     runs: Mapped[list["ValidationRun"]] = relationship(back_populates="document")
 
 
+class Visit(Base):
+    """One hit to the public site URL — client IP + time (path/user-agent for context)."""
+    __tablename__ = "visits"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    ip: Mapped[str] = mapped_column(String(64), index=True)
+    path: Mapped[str] = mapped_column(String(512), default="/")
+    user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    hit_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+
+
 class ValidationRun(Base):
     __tablename__ = "validation_runs"
 

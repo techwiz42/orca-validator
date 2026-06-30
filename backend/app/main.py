@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 import backend.models  # noqa: F401  — register models for create_all
-from backend.api import documents, health, machines
+from backend.api import documents, health, machines, visits
 from backend.app.config import get_settings
 from backend.app.database import Base, engine
 from backend.app.state import VERIFIED_MACHINES
@@ -41,3 +41,4 @@ app = FastAPI(title="orca-validator", version="0.1.0", lifespan=lifespan)
 app.include_router(health.router)
 app.include_router(documents.router)
 app.include_router(machines.router)
+app.include_router(visits.router)
