@@ -16,6 +16,11 @@ from backend.llm.budget import check_budget, record_usage
 logger = logging.getLogger(__name__)
 
 
+# Fixed seed → reproducible output for a given (prompt, temperature). Without it, Together's batched
+# inference varies run-to-run even at temperature 0, which masks the temperature slider's effect.
+_SEED = 7
+
+
 async def _chat(messages: list[dict], max_tokens: int = 2000, temperature: float = 0.022,
                 response_json: bool = False) -> str:
     s = get_settings()
@@ -27,6 +32,7 @@ async def _chat(messages: list[dict], max_tokens: int = 2000, temperature: float
         "messages": messages,
         "max_tokens": max_tokens,
         "temperature": temperature,
+        "seed": _SEED,
     }
     if response_json:
         payload["response_format"] = {"type": "json_object"}
