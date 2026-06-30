@@ -19,7 +19,7 @@ from sqlalchemy import select
 from backend.app.config import get_settings
 from backend.app.database import AsyncSessionLocal
 from backend.models import Document, ValidationResult, ValidationRun
-from backend.ocr.extract import get_extractor
+from backend.ocr.extract import get_extractor, is_contract_like, merge_core_contract_fields
 import asyncio
 
 from backend.ocr.parser_client import parse_document
@@ -68,6 +68,12 @@ async def run_validation(run_id: UUID) -> None:
             if settings.llm_enabled:
                 ext = await classify_and_check_fields(doc_text, temperature)
                 document_type = ext.get("document_type", doc_type)
+                if is_contract_like(document_type):
+                    # Hybrid: always hold contracts to the core fields (fill any the LLM dropped).
+                    merged = merge_core_contract_fields(ext["fields"], ocr)
+                    missing = [k for k, present in merged.items() if not present]
+                    ext = {**ext, "fields": merged, "missing_fields": missing,
+                           "missing_count": len(missing)}
             else:
                 ext = get_extractor(doc_type, settings.EXTRACTOR).extract(ocr)
             fields = ext["fields"]

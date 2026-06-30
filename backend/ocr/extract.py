@@ -50,6 +50,32 @@ class DeterministicContractExtractor:
 _EXTRACTORS = {"contract": {"deterministic": DeterministicContractExtractor}}
 
 
+# Document types that should always be held to the core contract fields, regardless of which
+# context-specific fields the LLM happens to pick.
+_CONTRACT_LIKE = (
+    "agreement", "contract", "lease", "license", "nda", "non-disclosure",
+    "terms of service", "terms and conditions", "memorandum of understanding", "mou", "addendum",
+)
+
+
+def is_contract_like(document_type: str) -> bool:
+    dt = (document_type or "").lower()
+    return any(k in dt for k in _CONTRACT_LIKE)
+
+
+def merge_core_contract_fields(llm_fields: dict, result: OCRResult) -> dict:
+    """Hybrid field set: keep the LLM's context-aware fields, but guarantee the 5 core contract
+    fields are always checked. The LLM's own assessment wins where it picked a core field; any core
+    field it dropped is filled deterministically (regex presence) — so e.g. a missing signature
+    block is always caught on a contract."""
+    core_presence = DeterministicContractExtractor().extract(result)["fields"]
+    merged = dict(llm_fields)
+    for field in CONTRACT_REQUIRED:
+        if field not in merged:
+            merged[field] = core_presence.get(field, False)
+    return merged
+
+
 def get_extractor(doc_type: str, kind: str = "deterministic") -> Extractor:
     by_kind = _EXTRACTORS.get(doc_type)
     if not by_kind:
