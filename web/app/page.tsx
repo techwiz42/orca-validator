@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { MachineDiagram } from "./MachineDiagram";
 
@@ -77,8 +77,11 @@ export default function Home() {
   const [docId, setDocId] = useState<string | null>(null);
   const [pasteText, setPasteText] = useState("");
   const [temperature, setTemperature] = useState(0.03);
+  const runToken = useRef(0);  // invalidates a prior analysis's polling loop when a new one starts
 
   async function validate(f: File) {
+    // Begin a fresh analysis: bump the token (invalidates any in-flight prior loop) and wipe old data.
+    const myToken = ++runToken.current;
     setBusy(true);
     setResult(null);
     setDocId(null);
@@ -88,16 +91,19 @@ export default function Home() {
     form.append("doc_type", "contract");
     form.append("temperature", String(temperature));
     const res = await fetch("/api/documents", { method: "POST", body: form });
+    if (runToken.current !== myToken) return;  // superseded by a newer analysis
     if (!res.ok) {
       setStatus("upload failed");
       setBusy(false);
       return;
     }
     const { document_id } = await res.json();
+    if (runToken.current !== myToken) return;
     setDocId(document_id);
     const start = Date.now();
     for (let i = 0; i < 240; i++) {
       const r: Result = await fetch(`/api/documents/${document_id}/result`).then((x) => x.json());
+      if (runToken.current !== myToken) return;  // a newer analysis started — never write stale data
       if (r.ready) {
         setResult(r);
         setStatus("done");
@@ -107,7 +113,7 @@ export default function Home() {
       setStatus(`analyzing… ${secs}s — long documents can take a few minutes`);
       await new Promise((done) => setTimeout(done, 1500));
     }
-    setBusy(false);
+    if (runToken.current === myToken) setBusy(false);
   }
 
   function onDrop(e: React.DragEvent) {
