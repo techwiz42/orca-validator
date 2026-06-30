@@ -161,6 +161,12 @@ Example — an "active" phase that cycles internally:
 > In dispute
 - ignore: *
 
+To LEAVE a composite for a state OUTSIDE it, put that transition on the PARENT composite, not on a
+child — e.g. `| active | TERMINATE | | terminated | |`, which applies to ALL of active's children. A
+child may only transition to a sibling inside the same composite. (ORCA does NOT treat a
+child→outside transition as reaching the outside state, so an exit written on a child fails
+verification with the outside state "unreachable".)
+
 RULES (a verifier will check these):
 - The FIRST line MUST be exactly `# machine NameInPascalCase` — include the literal word "machine".
 - Exactly ONE top-level state marked [initial]; mark every terminal state [final]. Each composite
