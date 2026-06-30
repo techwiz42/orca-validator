@@ -13,7 +13,10 @@ export function MachineDiagram({ source, id = "m" }: { source: string | null; id
     (async () => {
       try {
         const mermaid = (await import("mermaid")).default;
-        mermaid.initialize({ startOnLoad: false, theme: "dark" });
+        // htmlLabels:false → labels render as native SVG <text>, not <foreignObject> XHTML.
+        // foreignObject labels silently vanish when the SVG is inserted via innerHTML (below),
+        // which left every state box unlabeled.
+        mermaid.initialize({ startOnLoad: false, theme: "dark", flowchart: { htmlLabels: false } });
         const { svg } = await mermaid.render(`mmd-${id}`, source);
         if (!cancelled && ref.current) ref.current.innerHTML = svg;
       } catch {
