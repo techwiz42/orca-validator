@@ -7,6 +7,8 @@ is what keeps the co-located droplet's DB pool from being starved.
 import asyncio
 import logging
 
+from redis.exceptions import RedisError
+
 from backend.app.config import get_settings
 from backend.queue import dequeue
 from backend.pipeline.validate import run_validation
@@ -33,7 +35,13 @@ async def main() -> None:
         # Acquire a slot BEFORE pulling work: at most WORKER_CONCURRENCY jobs leave Redis at once,
         # the rest stay durably queued (a crash loses only the in-flight few, not the backlog).
         await sem.acquire()
-        run_id = await dequeue(timeout=5)
+        try:
+            run_id = await dequeue(timeout=5)
+        except RedisError:
+            logger.exception("worker: dequeue error — retrying")
+            sem.release()
+            await asyncio.sleep(1)
+            continue
         if run_id is None:
             sem.release()  # nothing queued — release and poll again
             continue

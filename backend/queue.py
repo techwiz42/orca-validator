@@ -7,6 +7,7 @@ them — the production shape, so slow OCR/LLM work never rides on an API worker
 from uuid import UUID
 
 import redis.asyncio as redis
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from backend.app.config import get_settings
 
@@ -26,7 +27,12 @@ async def enqueue(run_id: UUID) -> None:
 
 
 async def dequeue(timeout: int = 5) -> UUID | None:
-    item = await _client().brpop(_QUEUE_KEY, timeout=timeout)
+    try:
+        item = await _client().brpop(_QUEUE_KEY, timeout=timeout)
+    except RedisTimeoutError:
+        # Blocking-pop read window elapsed with nothing queued — the client read-timeout fires
+        # alongside the server-side BRPOP timeout. Treat as "nothing dequeued", not an error.
+        return None
     if not item:
         return None
     _, run_id = item
