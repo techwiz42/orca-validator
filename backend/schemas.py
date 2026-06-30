@@ -28,6 +28,7 @@ class ResultResponse(BaseModel):
     extracted_fields: dict = {}
     machine_id: str | None = None
     machine_hash: str | None = None
+    temperature: float | None = None      # LLM temperature used for this run (the upload's slider value)
     # AI-assisted layer (not part of the verified verdict)
     analysis: dict = {}
     analysis_status: str = "skipped"      # done | skipped | error | budget_exceeded

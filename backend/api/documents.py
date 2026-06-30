@@ -57,6 +57,7 @@ async def submit_document(
     run = ValidationRun(
         document_id=doc.id, machine_id=machine_id, machine_version="0.1.30",
         machine_hash=VERIFIED_MACHINES.get(f"{machine_id}.orca.md", "unknown"), status="queued",
+        temperature=temperature,   # persisted on the run so the worker (Redis path) honors the slider
     )
     db.add(run)
     await db.commit()
@@ -65,7 +66,7 @@ async def submit_document(
     if get_settings().USE_REDIS_QUEUE:
         await enqueue(run.id)
     else:
-        background.add_task(run_validation, run.id, temperature)
+        background.add_task(run_validation, run.id)
     return SubmitResponse(document_id=doc.id, run_id=run.id, status="queued")
 
 
@@ -98,6 +99,7 @@ async def get_result(document_id: UUID, subject: str = Depends(require_api_key),
         run_id=run.id, status=run.status, ready=True,
         verdict=res.verdict, final_state=res.final_state, reasons=res.reasons,
         extracted_fields=res.extracted_fields, machine_id=run.machine_id, machine_hash=run.machine_hash,
+        temperature=run.temperature,
         analysis=res.analysis or {}, analysis_status=res.analysis_status,
         revised_available=bool(res.revised_markdown),
         revised_redline=res.revised_markdown or None,

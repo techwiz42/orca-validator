@@ -32,7 +32,7 @@ from backend.storage.blobs import get_blob_store
 logger = logging.getLogger(__name__)
 
 
-async def run_validation(run_id: UUID, temperature: float = 0.03) -> None:
+async def run_validation(run_id: UUID) -> None:
     settings = get_settings()
 
     async with AsyncSessionLocal() as db:
@@ -44,6 +44,7 @@ async def run_validation(run_id: UUID, temperature: float = 0.03) -> None:
         run.started_at = _utcnow()
         doc.status = "running"
         doc_type, blob_ref, owner, document_id = doc.doc_type, doc.blob_ref, doc.owner, str(doc.id)
+        temperature = run.temperature   # honor the per-upload slider (works on the Redis-queue path)
         await db.commit()
 
     bridge = get_bridge()
